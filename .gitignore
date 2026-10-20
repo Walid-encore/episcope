@@ -1,0 +1,7 @@
+﻿.venv/
+data/
+.env
+__pycache__/
+spark-warehouse/
+test_parquet/
+*.pyc
