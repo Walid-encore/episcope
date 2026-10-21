@@ -1,0 +1,710 @@
+facility_id,facility_name,facility_type,district_code,latitude,longitude,beds,icu_beds
+F00001,Bagerhat Sadar Hospital,hospital,01,22.41498,89.90072,188,17
+F00002,Bagerhat Upazila Health Complex 1,upazila_health_complex,01,22.55144,89.76505,31,2
+F00003,Bagerhat Upazila Health Complex 2,upazila_health_complex,01,22.624,89.79942,50,2
+F00004,Bagerhat Community Clinic 1,clinic,01,22.49781,89.726,1,0
+F00005,Bagerhat Community Clinic 2,clinic,01,22.4872,89.8325,4,0
+F00006,Bagerhat Community Clinic 3,clinic,01,22.53854,89.70275,3,0
+F00007,Bagerhat Community Clinic 4,clinic,01,22.65953,89.82859,0,0
+F00008,Bandarban Sadar Hospital,hospital,02,21.77992,92.26971,251,23
+F00009,Bandarban Upazila Health Complex 1,upazila_health_complex,02,21.8257,92.37624,50,1
+F00010,Bandarban Upazila Health Complex 2,upazila_health_complex,02,21.58861,92.43982,50,0
+F00011,Bandarban Community Clinic 1,clinic,02,21.88436,92.33985,11,0
+F00012,Bandarban Community Clinic 2,clinic,02,21.75466,92.30424,1,0
+F00013,Barguna Sadar Hospital,hospital,03,22.20064,90.23437,77,5
+F00014,Barguna Upazila Health Complex 1,upazila_health_complex,03,22.29974,90.12926,50,0
+F00015,Barguna Upazila Health Complex 2,upazila_health_complex,03,22.19542,90.12401,31,0
+F00016,Barguna Community Clinic 1,clinic,03,22.10801,90.26794,4,0
+F00017,Barguna Community Clinic 2,clinic,03,22.25632,90.1666,5,0
+F00018,Barishal Sadar Hospital,hospital,04,22.87745,90.38238,103,9
+F00019,Barishal Upazila Health Complex 1,upazila_health_complex,04,22.73616,90.19188,50,2
+F00020,Barishal Upazila Health Complex 2,upazila_health_complex,04,22.66099,90.43781,50,1
+F00021,Barishal Upazila Health Complex 3,upazila_health_complex,04,22.79825,90.48044,31,1
+F00022,Barishal Community Clinic 1,clinic,04,22.82586,90.2293,5,0
+F00023,Barishal Community Clinic 2,clinic,04,22.83634,90.40734,7,0
+F00024,Barishal Community Clinic 3,clinic,04,22.61816,90.26542,5,0
+F00025,Barishal Community Clinic 4,clinic,04,22.77582,90.39154,6,0
+F00026,Barishal Community Clinic 5,clinic,04,22.79288,90.19541,2,0
+F00027,Barishal Community Clinic 6,clinic,04,22.65923,90.1052,4,0
+F00028,Bhola Sadar Hospital,hospital,05,22.35622,90.79547,83,3
+F00029,Bhola Upazila Health Complex 1,upazila_health_complex,05,22.51725,90.72035,50,1
+F00030,Bhola Upazila Health Complex 2,upazila_health_complex,05,22.38033,90.79403,31,2
+F00031,Bhola Upazila Health Complex 3,upazila_health_complex,05,22.40354,90.94572,31,1
+F00032,Bhola Community Clinic 1,clinic,05,22.6208,90.71641,4,0
+F00033,Bhola Community Clinic 2,clinic,05,22.33796,90.77507,2,0
+F00034,Bhola Community Clinic 3,clinic,05,22.30621,90.80229,5,0
+F00035,Bhola Community Clinic 4,clinic,05,22.35437,90.7835,9,0
+F00036,Bhola Community Clinic 5,clinic,05,22.35155,90.78186,4,0
+F00037,Bogura Sadar Hospital,hospital,06,25.01828,89.32444,153,6
+F00038,Bogura General Hospital 1,hospital,06,24.89625,89.31539,107,4
+F00039,Bogura Upazila Health Complex 1,upazila_health_complex,06,24.81654,89.47751,50,1
+F00040,Bogura Upazila Health Complex 2,upazila_health_complex,06,25.01347,89.31727,31,0
+F00041,Bogura Upazila Health Complex 3,upazila_health_complex,06,24.86699,89.25378,50,0
+F00042,Bogura Upazila Health Complex 4,upazila_health_complex,06,24.91809,89.26418,31,2
+F00043,Bogura Upazila Health Complex 5,upazila_health_complex,06,24.69653,89.40567,50,0
+F00044,Bogura Community Clinic 1,clinic,06,24.74688,89.51018,3,0
+F00045,Bogura Community Clinic 2,clinic,06,24.85302,89.39532,3,0
+F00046,Bogura Community Clinic 3,clinic,06,24.82766,89.44773,3,0
+F00047,Bogura Community Clinic 4,clinic,06,24.96493,89.29747,2,0
+F00048,Bogura Community Clinic 5,clinic,06,24.80217,89.48579,4,0
+F00049,Bogura Community Clinic 6,clinic,06,24.79143,89.39383,5,0
+F00050,Bogura Community Clinic 7,clinic,06,24.83568,89.18998,4,0
+F00051,Bogura Community Clinic 8,clinic,06,24.68975,89.49611,3,0
+F00052,Brahmanbaria Sadar Hospital,hospital,07,23.90377,91.14933,95,5
+F00053,Brahmanbaria General Hospital 1,hospital,07,23.90818,90.95859,222,11
+F00054,Brahmanbaria Upazila Health Complex 1,upazila_health_complex,07,23.91693,91.10889,31,1
+F00055,Brahmanbaria Upazila Health Complex 2,upazila_health_complex,07,23.95445,91.03572,50,0
+F00056,Brahmanbaria Upazila Health Complex 3,upazila_health_complex,07,23.82391,91.11667,50,1
+F00057,Brahmanbaria Upazila Health Complex 4,upazila_health_complex,07,23.97121,91.05793,31,2
+F00058,Brahmanbaria Upazila Health Complex 5,upazila_health_complex,07,23.95542,91.11553,31,2
+F00059,Brahmanbaria Community Clinic 1,clinic,07,23.98865,90.95589,2,0
+F00060,Brahmanbaria Community Clinic 2,clinic,07,24.08213,91.19477,6,0
+F00061,Brahmanbaria Community Clinic 3,clinic,07,23.80744,91.19838,4,0
+F00062,Brahmanbaria Community Clinic 4,clinic,07,23.95213,91.10392,3,0
+F00063,Brahmanbaria Community Clinic 5,clinic,07,23.90926,91.13767,3,0
+F00064,Brahmanbaria Community Clinic 6,clinic,07,23.97056,91.01268,2,0
+F00065,Brahmanbaria Community Clinic 7,clinic,07,23.96505,91.2604,8,0
+F00066,Chandpur Sadar Hospital,hospital,08,23.2931,90.96202,188,13
+F00067,Chandpur General Hospital 1,hospital,08,23.34429,90.72627,94,3
+F00068,Chandpur Upazila Health Complex 1,upazila_health_complex,08,23.21963,90.98815,50,2
+F00069,Chandpur Upazila Health Complex 2,upazila_health_complex,08,23.1957,90.73226,31,2
+F00070,Chandpur Upazila Health Complex 3,upazila_health_complex,08,23.0865,90.69082,50,2
+F00071,Chandpur Upazila Health Complex 4,upazila_health_complex,08,23.41165,90.94096,31,0
+F00072,Chandpur Community Clinic 1,clinic,08,23.18075,90.71505,6,0
+F00073,Chandpur Community Clinic 2,clinic,08,23.29184,90.86434,3,0
+F00074,Chandpur Community Clinic 3,clinic,08,23.19442,90.907,0,0
+F00075,Chandpur Community Clinic 4,clinic,08,23.11675,90.92689,5,0
+F00076,Chandpur Community Clinic 5,clinic,08,23.2993,90.74209,5,0
+F00077,Chapainawabganj Sadar Hospital,hospital,09,24.72973,88.14973,192,11
+F00078,Chapainawabganj Upazila Health Complex 1,upazila_health_complex,09,24.77954,88.19793,31,1
+F00079,Chapainawabganj Upazila Health Complex 2,upazila_health_complex,09,24.57608,88.19535,50,1
+F00080,Chapainawabganj Upazila Health Complex 3,upazila_health_complex,09,24.76941,88.39215,31,0
+F00081,Chapainawabganj Community Clinic 1,clinic,09,24.75216,88.21031,6,0
+F00082,Chapainawabganj Community Clinic 2,clinic,09,24.72354,88.18234,3,0
+F00083,Chapainawabganj Community Clinic 3,clinic,09,24.70867,88.33902,5,0
+F00084,Chapainawabganj Community Clinic 4,clinic,09,24.76674,88.43666,5,0
+F00085,Chapainawabganj Community Clinic 5,clinic,09,24.77668,88.33177,5,0
+F00086,Chattogram Sadar Hospital,hospital,10,22.49357,91.93175,132,11
+F00087,Chattogram General Hospital 1,hospital,10,22.45647,91.949,87,7
+F00088,Chattogram General Hospital 2,hospital,10,22.42425,91.94557,249,10
+F00089,Chattogram General Hospital 3,hospital,10,22.4004,91.88073,80,3
+F00090,Chattogram Upazila Health Complex 1,upazila_health_complex,10,22.57264,92.09904,31,2
+F00091,Chattogram Upazila Health Complex 2,upazila_health_complex,10,22.44822,92.08857,31,1
+F00092,Chattogram Upazila Health Complex 3,upazila_health_complex,10,22.40632,91.86755,50,1
+F00093,Chattogram Upazila Health Complex 4,upazila_health_complex,10,22.47286,92.14287,50,1
+F00094,Chattogram Upazila Health Complex 5,upazila_health_complex,10,22.48876,92.06277,31,0
+F00095,Chattogram Upazila Health Complex 6,upazila_health_complex,10,22.52989,91.8205,31,2
+F00096,Chattogram Upazila Health Complex 7,upazila_health_complex,10,22.52021,92.02205,50,2
+F00097,Chattogram Upazila Health Complex 8,upazila_health_complex,10,22.51807,92.0838,31,0
+F00098,Chattogram Upazila Health Complex 9,upazila_health_complex,10,22.24358,92.11017,31,2
+F00099,Chattogram Upazila Health Complex 10,upazila_health_complex,10,22.54176,92.10262,50,1
+F00100,Chattogram Community Clinic 1,clinic,10,22.39581,92.0864,5,0
+F00101,Chattogram Community Clinic 2,clinic,10,22.34821,91.92212,0,0
+F00102,Chattogram Community Clinic 3,clinic,10,22.38271,92.07544,4,0
+F00103,Chattogram Community Clinic 4,clinic,10,22.35742,91.96896,4,0
+F00104,Chattogram Community Clinic 5,clinic,10,22.54842,91.98109,2,0
+F00105,Chattogram Community Clinic 6,clinic,10,22.53041,92.08624,2,0
+F00106,Chattogram Community Clinic 7,clinic,10,22.30945,91.92089,5,0
+F00107,Chattogram Community Clinic 8,clinic,10,22.32522,92.14728,7,0
+F00108,Chattogram Community Clinic 9,clinic,10,22.26156,91.87932,8,0
+F00109,Chattogram Community Clinic 10,clinic,10,22.63946,92.09006,8,0
+F00110,Chattogram Community Clinic 11,clinic,10,22.64065,91.94481,2,0
+F00111,Chattogram Community Clinic 12,clinic,10,22.40932,92.03369,5,0
+F00112,Chattogram Community Clinic 13,clinic,10,22.44778,91.97373,4,0
+F00113,Chattogram Community Clinic 14,clinic,10,22.39967,91.95741,5,0
+F00114,Chuadanga Sadar Hospital,hospital,11,23.58655,88.94127,144,11
+F00115,Chuadanga Upazila Health Complex 1,upazila_health_complex,11,23.59805,88.78971,50,0
+F00116,Chuadanga Upazila Health Complex 2,upazila_health_complex,11,23.55236,88.9736,31,1
+F00117,Chuadanga Community Clinic 1,clinic,11,23.55925,88.81501,4,0
+F00118,Chuadanga Community Clinic 2,clinic,11,23.57508,88.68302,5,0
+F00119,Chuadanga Community Clinic 3,clinic,11,23.49859,88.77417,7,0
+F00120,Chuadanga Community Clinic 4,clinic,11,23.66862,88.75447,8,0
+F00121,Cox's Bazar Sadar Hospital,hospital,12,21.36809,91.95891,260,16
+F00122,Cox's Bazar General Hospital 1,hospital,12,21.30243,92.13962,50,2
+F00123,Cox's Bazar Upazila Health Complex 1,upazila_health_complex,12,21.28642,91.8722,50,0
+F00124,Cox's Bazar Upazila Health Complex 2,upazila_health_complex,12,21.33144,92.16712,31,1
+F00125,Cox's Bazar Upazila Health Complex 3,upazila_health_complex,12,21.36759,92.09626,31,1
+F00126,Cox's Bazar Upazila Health Complex 4,upazila_health_complex,12,21.29474,92.02111,31,2
+F00127,Cox's Bazar Community Clinic 1,clinic,12,21.49882,92.14826,4,0
+F00128,Cox's Bazar Community Clinic 2,clinic,12,21.37329,92.06042,3,0
+F00129,Cox's Bazar Community Clinic 3,clinic,12,21.42953,92.12323,2,0
+F00130,Cox's Bazar Community Clinic 4,clinic,12,21.39418,92.0945,4,0
+F00131,Cox's Bazar Community Clinic 5,clinic,12,21.35477,91.94522,4,0
+F00132,Cox's Bazar Community Clinic 6,clinic,12,21.33674,91.91359,6,0
+F00133,Cumilla Sadar Hospital,hospital,13,23.21815,91.19473,78,2
+F00134,Cumilla General Hospital 1,hospital,13,23.41043,91.11884,148,9
+F00135,Cumilla General Hospital 2,hospital,13,23.6418,91.23703,178,8
+F00136,Cumilla Upazila Health Complex 1,upazila_health_complex,13,23.40712,90.87962,31,2
+F00137,Cumilla Upazila Health Complex 2,upazila_health_complex,13,23.48761,91.03784,50,1
+F00138,Cumilla Upazila Health Complex 3,upazila_health_complex,13,23.33555,90.8872,31,1
+F00139,Cumilla Upazila Health Complex 4,upazila_health_complex,13,23.41134,91.12239,31,2
+F00140,Cumilla Upazila Health Complex 5,upazila_health_complex,13,23.40603,91.08162,50,1
+F00141,Cumilla Upazila Health Complex 6,upazila_health_complex,13,23.406,90.8901,50,1
+F00142,Cumilla Upazila Health Complex 7,upazila_health_complex,13,23.6186,91.10689,50,2
+F00143,Cumilla Community Clinic 1,clinic,13,23.45087,91.08522,2,0
+F00144,Cumilla Community Clinic 2,clinic,13,23.5354,91.01777,5,0
+F00145,Cumilla Community Clinic 3,clinic,13,23.44586,91.1358,3,0
+F00146,Cumilla Community Clinic 4,clinic,13,23.39632,91.03362,3,0
+F00147,Cumilla Community Clinic 5,clinic,13,23.55485,90.93538,1,0
+F00148,Cumilla Community Clinic 6,clinic,13,23.39109,91.19963,3,0
+F00149,Cumilla Community Clinic 7,clinic,13,23.55646,91.04357,4,0
+F00150,Cumilla Community Clinic 8,clinic,13,23.48632,91.12396,6,0
+F00151,Cumilla Community Clinic 9,clinic,13,23.44031,91.07276,4,0
+F00152,Cumilla Community Clinic 10,clinic,13,23.6418,91.14515,5,0
+F00153,Cumilla Community Clinic 11,clinic,13,23.41241,90.94557,3,0
+F00154,Cumilla Community Clinic 12,clinic,13,23.31354,91.04012,4,0
+F00155,Dhaka Sadar Hospital,hospital,14,23.79734,90.39837,609,21
+F00156,Dhaka General Hospital 1,hospital,14,23.74117,90.33901,134,8
+F00157,Dhaka General Hospital 2,hospital,14,23.63897,90.3054,105,9
+F00158,Dhaka General Hospital 3,hospital,14,23.57079,90.31781,198,17
+F00159,Dhaka General Hospital 4,hospital,14,23.75202,90.39528,220,11
+F00160,Dhaka General Hospital 5,hospital,14,23.77478,90.32943,195,16
+F00161,Dhaka Upazila Health Complex 1,upazila_health_complex,14,23.83593,90.49891,31,0
+F00162,Dhaka Upazila Health Complex 2,upazila_health_complex,14,23.73388,90.32982,31,2
+F00163,Dhaka Upazila Health Complex 3,upazila_health_complex,14,23.7193,90.41293,31,0
+F00164,Dhaka Upazila Health Complex 4,upazila_health_complex,14,23.91779,90.34762,31,2
+F00165,Dhaka Upazila Health Complex 5,upazila_health_complex,14,23.73675,90.45365,50,0
+F00166,Dhaka Upazila Health Complex 6,upazila_health_complex,14,23.83487,90.36343,50,2
+F00167,Dhaka Upazila Health Complex 7,upazila_health_complex,14,23.7019,90.32551,31,0
+F00168,Dhaka Upazila Health Complex 8,upazila_health_complex,14,23.73122,90.3395,31,0
+F00169,Dhaka Upazila Health Complex 9,upazila_health_complex,14,23.70383,90.50881,31,1
+F00170,Dhaka Upazila Health Complex 10,upazila_health_complex,14,23.73402,90.50753,31,2
+F00171,Dhaka Upazila Health Complex 11,upazila_health_complex,14,23.84114,90.3587,31,1
+F00172,Dhaka Upazila Health Complex 12,upazila_health_complex,14,23.68104,90.3332,50,1
+F00173,Dhaka Upazila Health Complex 13,upazila_health_complex,14,23.7303,90.31713,31,1
+F00174,Dhaka Upazila Health Complex 14,upazila_health_complex,14,23.86885,90.27232,31,2
+F00175,Dhaka Upazila Health Complex 15,upazila_health_complex,14,23.76997,90.28259,31,2
+F00176,Dhaka Community Clinic 1,clinic,14,23.8507,90.27542,4,0
+F00177,Dhaka Community Clinic 2,clinic,14,23.82376,90.19764,3,0
+F00178,Dhaka Community Clinic 3,clinic,14,23.76167,90.40459,4,0
+F00179,Dhaka Community Clinic 4,clinic,14,23.73735,90.1928,4,0
+F00180,Dhaka Community Clinic 5,clinic,14,23.8723,90.3448,5,0
+F00181,Dhaka Community Clinic 6,clinic,14,23.79247,90.31834,1,0
+F00182,Dhaka Community Clinic 7,clinic,14,23.73966,90.38045,2,0
+F00183,Dhaka Community Clinic 8,clinic,14,23.81305,90.39313,3,0
+F00184,Dhaka Community Clinic 9,clinic,14,23.82827,90.40258,1,0
+F00185,Dhaka Community Clinic 10,clinic,14,23.59034,90.38362,3,0
+F00186,Dhaka Community Clinic 11,clinic,14,23.90785,90.32128,4,0
+F00187,Dhaka Community Clinic 12,clinic,14,24.0032,90.51482,6,0
+F00188,Dhaka Community Clinic 13,clinic,14,23.77288,90.32558,5,0
+F00189,Dhaka Community Clinic 14,clinic,14,23.63502,90.32815,2,0
+F00190,Dhaka Community Clinic 15,clinic,14,23.75416,90.48849,1,0
+F00191,Dhaka Community Clinic 16,clinic,14,23.78867,90.46817,6,0
+F00192,Dhaka Community Clinic 17,clinic,14,23.94392,90.32843,1,0
+F00193,Dhaka Community Clinic 18,clinic,14,23.85141,90.533,8,0
+F00194,Dhaka Community Clinic 19,clinic,14,23.75476,90.33974,1,0
+F00195,Dhaka Community Clinic 20,clinic,14,23.80738,90.48524,7,0
+F00196,Dhaka Community Clinic 21,clinic,14,23.80072,90.41481,5,0
+F00197,Dhaka Community Clinic 22,clinic,14,23.81699,90.43068,3,0
+F00198,Dhaka Community Clinic 23,clinic,14,23.79845,90.25475,1,0
+F00199,Dhaka Community Clinic 24,clinic,14,23.81495,90.35361,2,0
+F00200,Dinajpur Sadar Hospital,hospital,15,25.58896,88.64791,119,6
+F00201,Dinajpur General Hospital 1,hospital,15,25.54087,88.60099,178,13
+F00202,Dinajpur Upazila Health Complex 1,upazila_health_complex,15,25.75387,88.57562,50,1
+F00203,Dinajpur Upazila Health Complex 2,upazila_health_complex,15,25.83072,88.87298,31,0
+F00204,Dinajpur Upazila Health Complex 3,upazila_health_complex,15,25.55969,88.64584,50,1
+F00205,Dinajpur Upazila Health Complex 4,upazila_health_complex,15,25.70279,88.81668,50,0
+F00206,Dinajpur Upazila Health Complex 5,upazila_health_complex,15,25.69096,88.78716,50,1
+F00207,Dinajpur Community Clinic 1,clinic,15,25.74032,88.77133,7,0
+F00208,Dinajpur Community Clinic 2,clinic,15,25.68407,88.71612,1,0
+F00209,Dinajpur Community Clinic 3,clinic,15,25.77294,88.79018,5,0
+F00210,Dinajpur Community Clinic 4,clinic,15,25.66718,88.61326,3,0
+F00211,Dinajpur Community Clinic 5,clinic,15,25.66021,88.68616,2,0
+F00212,Dinajpur Community Clinic 6,clinic,15,25.63529,88.67745,5,0
+F00213,Dinajpur Community Clinic 7,clinic,15,25.61191,88.72836,4,0
+F00214,Faridpur Sadar Hospital,hospital,16,23.3046,89.96078,275,26
+F00215,Faridpur Upazila Health Complex 1,upazila_health_complex,16,23.46093,89.96253,31,0
+F00216,Faridpur Upazila Health Complex 2,upazila_health_complex,16,23.27522,89.92881,31,0
+F00217,Faridpur Upazila Health Complex 3,upazila_health_complex,16,23.54684,89.88139,50,2
+F00218,Faridpur Community Clinic 1,clinic,16,23.62413,89.81238,8,0
+F00219,Faridpur Community Clinic 2,clinic,16,23.5021,89.93096,5,0
+F00220,Faridpur Community Clinic 3,clinic,16,23.45873,89.75616,3,0
+F00221,Faridpur Community Clinic 4,clinic,16,23.41641,89.89577,4,0
+F00222,Faridpur Community Clinic 5,clinic,16,23.51538,90.00866,2,0
+F00223,Faridpur Community Clinic 6,clinic,16,23.45454,89.85484,3,0
+F00224,Feni Sadar Hospital,hospital,17,23.07448,91.5314,246,10
+F00225,Feni Upazila Health Complex 1,upazila_health_complex,17,23.0903,91.48425,31,2
+F00226,Feni Upazila Health Complex 2,upazila_health_complex,17,22.95486,91.35025,31,1
+F00227,Feni Upazila Health Complex 3,upazila_health_complex,17,23.04941,91.3768,31,1
+F00228,Feni Community Clinic 1,clinic,17,22.94676,91.34547,3,0
+F00229,Feni Community Clinic 2,clinic,17,22.93329,91.6222,4,0
+F00230,Feni Community Clinic 3,clinic,17,23.05273,91.28502,7,0
+F00231,Feni Community Clinic 4,clinic,17,23.11412,91.20523,3,0
+F00232,Gaibandha Sadar Hospital,hospital,18,25.34116,89.55493,258,8
+F00233,Gaibandha General Hospital 1,hospital,18,25.25686,89.3887,100,8
+F00234,Gaibandha Upazila Health Complex 1,upazila_health_complex,18,25.3814,89.52996,50,0
+F00235,Gaibandha Upazila Health Complex 2,upazila_health_complex,18,25.22156,89.4269,31,2
+F00236,Gaibandha Upazila Health Complex 3,upazila_health_complex,18,25.20059,89.53264,50,0
+F00237,Gaibandha Upazila Health Complex 4,upazila_health_complex,18,25.27613,89.42624,50,2
+F00238,Gaibandha Community Clinic 1,clinic,18,25.39947,89.56698,4,0
+F00239,Gaibandha Community Clinic 2,clinic,18,25.52931,89.7563,6,0
+F00240,Gaibandha Community Clinic 3,clinic,18,25.42211,89.5912,4,0
+F00241,Gaibandha Community Clinic 4,clinic,18,25.31686,89.66528,6,0
+F00242,Gaibandha Community Clinic 5,clinic,18,25.17099,89.49726,8,0
+F00243,Gaibandha Community Clinic 6,clinic,18,25.28404,89.57393,7,0
+F00244,Gazipur Sadar Hospital,hospital,19,24.10794,90.28397,200,7
+F00245,Gazipur General Hospital 1,hospital,19,24.12332,90.35616,99,5
+F00246,Gazipur General Hospital 2,hospital,19,24.02599,90.44801,247,20
+F00247,Gazipur Upazila Health Complex 1,upazila_health_complex,19,23.96208,90.33019,31,2
+F00248,Gazipur Upazila Health Complex 2,upazila_health_complex,19,23.96532,90.35416,31,1
+F00249,Gazipur Upazila Health Complex 3,upazila_health_complex,19,24.15672,90.32294,50,1
+F00250,Gazipur Upazila Health Complex 4,upazila_health_complex,19,24.05672,90.33904,31,2
+F00251,Gazipur Upazila Health Complex 5,upazila_health_complex,19,24.14009,90.34089,31,2
+F00252,Gazipur Upazila Health Complex 6,upazila_health_complex,19,23.94207,90.38653,31,0
+F00253,Gazipur Upazila Health Complex 7,upazila_health_complex,19,24.23167,90.43646,50,0
+F00254,Gazipur Community Clinic 1,clinic,19,24.00635,90.30824,4,0
+F00255,Gazipur Community Clinic 2,clinic,19,24.02722,90.21111,4,0
+F00256,Gazipur Community Clinic 3,clinic,19,23.8724,90.41869,3,0
+F00257,Gazipur Community Clinic 4,clinic,19,24.13623,90.44772,4,0
+F00258,Gazipur Community Clinic 5,clinic,19,23.98528,90.3189,1,0
+F00259,Gazipur Community Clinic 6,clinic,19,24.21138,90.35448,5,0
+F00260,Gazipur Community Clinic 7,clinic,19,24.23045,90.2597,2,0
+F00261,Gazipur Community Clinic 8,clinic,19,24.27211,90.56262,8,0
+F00262,Gazipur Community Clinic 9,clinic,19,24.02824,90.3308,2,0
+F00263,Gazipur Community Clinic 10,clinic,19,24.20027,90.23565,4,0
+F00264,Gazipur Community Clinic 11,clinic,19,24.1661,90.36798,6,0
+F00265,Gazipur Community Clinic 12,clinic,19,24.27555,90.39615,6,0
+F00266,Gopalganj Sadar Hospital,hospital,20,23.04527,89.71759,119,9
+F00267,Gopalganj Upazila Health Complex 1,upazila_health_complex,20,23.10634,89.84014,50,1
+F00268,Gopalganj Upazila Health Complex 2,upazila_health_complex,20,23.18445,89.83241,50,2
+F00269,Gopalganj Community Clinic 1,clinic,20,22.95509,89.81799,4,0
+F00270,Gopalganj Community Clinic 2,clinic,20,23.18495,89.97569,0,0
+F00271,Gopalganj Community Clinic 3,clinic,20,23.11256,89.6424,1,0
+F00272,Habiganj Sadar Hospital,hospital,21,24.38079,91.34026,125,11
+F00273,Habiganj General Hospital 1,hospital,21,24.41445,91.54604,125,8
+F00274,Habiganj Upazila Health Complex 1,upazila_health_complex,21,24.38546,91.49469,31,1
+F00275,Habiganj Upazila Health Complex 2,upazila_health_complex,21,24.34503,91.34143,31,0
+F00276,Habiganj Upazila Health Complex 3,upazila_health_complex,21,24.17636,91.45629,31,2
+F00277,Habiganj Upazila Health Complex 4,upazila_health_complex,21,24.29545,91.57975,50,0
+F00278,Habiganj Community Clinic 1,clinic,21,24.25239,91.53508,2,0
+F00279,Habiganj Community Clinic 2,clinic,21,24.27543,91.48021,8,0
+F00280,Habiganj Community Clinic 3,clinic,21,24.191,91.39338,6,0
+F00281,Habiganj Community Clinic 4,clinic,21,24.27912,91.48825,6,0
+F00282,Habiganj Community Clinic 5,clinic,21,24.47885,91.4623,4,0
+F00283,Jamalpur Sadar Hospital,hospital,22,25.01538,89.75979,137,10
+F00284,Jamalpur General Hospital 1,hospital,22,25.03301,89.78318,225,21
+F00285,Jamalpur Upazila Health Complex 1,upazila_health_complex,22,24.96383,89.76539,50,2
+F00286,Jamalpur Upazila Health Complex 2,upazila_health_complex,22,24.8013,89.89466,50,0
+F00287,Jamalpur Upazila Health Complex 3,upazila_health_complex,22,24.94018,89.82895,31,0
+F00288,Jamalpur Upazila Health Complex 4,upazila_health_complex,22,24.95016,89.5578,31,0
+F00289,Jamalpur Community Clinic 1,clinic,22,24.87059,89.76448,4,0
+F00290,Jamalpur Community Clinic 2,clinic,22,24.93074,89.82645,5,0
+F00291,Jamalpur Community Clinic 3,clinic,22,24.98054,89.72584,2,0
+F00292,Jamalpur Community Clinic 4,clinic,22,25.02634,89.85597,7,0
+F00293,Jamalpur Community Clinic 5,clinic,22,24.9037,89.75059,4,0
+F00294,Jashore Sadar Hospital,hospital,23,22.95231,89.16447,50,3
+F00295,Jashore General Hospital 1,hospital,23,22.99436,89.12628,109,8
+F00296,Jashore Upazila Health Complex 1,upazila_health_complex,23,22.95561,89.1342,31,0
+F00297,Jashore Upazila Health Complex 2,upazila_health_complex,23,23.1273,89.26248,50,0
+F00298,Jashore Upazila Health Complex 3,upazila_health_complex,23,23.15239,89.14885,31,2
+F00299,Jashore Upazila Health Complex 4,upazila_health_complex,23,23.06498,89.06894,31,1
+F00300,Jashore Community Clinic 1,clinic,23,22.94449,89.10267,0,0
+F00301,Jashore Community Clinic 2,clinic,23,22.97413,89.17382,4,0
+F00302,Jashore Community Clinic 3,clinic,23,23.00846,89.23861,3,0
+F00303,Jashore Community Clinic 4,clinic,23,23.139,89.00649,3,0
+F00304,Jashore Community Clinic 5,clinic,23,23.12828,89.1191,5,0
+F00305,Jashore Community Clinic 6,clinic,23,23.02964,88.99889,6,0
+F00306,Jashore Community Clinic 7,clinic,23,23.06871,89.24921,5,0
+F00307,Jhalokati Sadar Hospital,hospital,24,22.50208,90.1764,453,14
+F00308,Jhalokati Upazila Health Complex 1,upazila_health_complex,24,22.56443,90.29767,50,2
+F00309,Jhalokati Upazila Health Complex 2,upazila_health_complex,24,22.5652,90.12582,50,0
+F00310,Jhalokati Community Clinic 1,clinic,24,22.59847,90.17003,5,0
+F00311,Jhalokati Community Clinic 2,clinic,24,22.57101,90.05335,3,0
+F00312,Jhenaidah Sadar Hospital,hospital,25,23.50549,89.13923,83,4
+F00313,Jhenaidah Upazila Health Complex 1,upazila_health_complex,25,23.55945,89.06869,50,1
+F00314,Jhenaidah Upazila Health Complex 2,upazila_health_complex,25,23.52937,89.19621,31,1
+F00315,Jhenaidah Upazila Health Complex 3,upazila_health_complex,25,23.63756,88.99134,50,0
+F00316,Jhenaidah Community Clinic 1,clinic,25,23.63311,89.1258,3,0
+F00317,Jhenaidah Community Clinic 2,clinic,25,23.62574,89.19226,0,0
+F00318,Jhenaidah Community Clinic 3,clinic,25,23.40763,89.11218,1,0
+F00319,Jhenaidah Community Clinic 4,clinic,25,23.48917,89.18526,2,0
+F00320,Jhenaidah Community Clinic 5,clinic,25,23.50644,89.22728,2,0
+F00321,Joypurhat Sadar Hospital,hospital,26,25.01283,89.25264,390,15
+F00322,Joypurhat Upazila Health Complex 1,upazila_health_complex,26,25.05282,89.3108,50,2
+F00323,Joypurhat Upazila Health Complex 2,upazila_health_complex,26,25.22957,89.20519,50,0
+F00324,Joypurhat Community Clinic 1,clinic,26,24.99132,89.02974,3,0
+F00325,Joypurhat Community Clinic 2,clinic,26,24.8432,89.08106,5,0
+F00326,Joypurhat Community Clinic 3,clinic,26,25.03794,88.99115,2,0
+F00327,Khagrachhari Sadar Hospital,hospital,27,23.1984,91.86804,378,22
+F00328,Khagrachhari Upazila Health Complex 1,upazila_health_complex,27,23.12207,91.86788,31,2
+F00329,Khagrachhari Upazila Health Complex 2,upazila_health_complex,27,23.24574,91.93876,31,2
+F00330,Khagrachhari Community Clinic 1,clinic,27,23.19278,91.95508,4,0
+F00331,Khagrachhari Community Clinic 2,clinic,27,23.17935,91.99506,6,0
+F00332,Khulna Sadar Hospital,hospital,28,22.48509,89.45548,159,12
+F00333,Khulna General Hospital 1,hospital,28,22.4634,89.37964,132,10
+F00334,Khulna Upazila Health Complex 1,upazila_health_complex,28,22.63236,89.48301,31,0
+F00335,Khulna Upazila Health Complex 2,upazila_health_complex,28,22.71182,89.24336,50,0
+F00336,Khulna Upazila Health Complex 3,upazila_health_complex,28,22.51702,89.32129,50,1
+F00337,Khulna Upazila Health Complex 4,upazila_health_complex,28,22.61917,89.40298,31,0
+F00338,Khulna Community Clinic 1,clinic,28,22.41276,89.55731,7,0
+F00339,Khulna Community Clinic 2,clinic,28,22.37397,89.34748,5,0
+F00340,Khulna Community Clinic 3,clinic,28,22.52269,89.57111,3,0
+F00341,Khulna Community Clinic 4,clinic,28,22.42682,89.36504,5,0
+F00342,Khulna Community Clinic 5,clinic,28,22.49416,89.43098,4,0
+F00343,Kishoreganj Sadar Hospital,hospital,29,24.34471,90.89183,148,9
+F00344,Kishoreganj General Hospital 1,hospital,29,24.22987,90.82824,237,12
+F00345,Kishoreganj Upazila Health Complex 1,upazila_health_complex,29,24.54555,90.91196,50,1
+F00346,Kishoreganj Upazila Health Complex 2,upazila_health_complex,29,24.23389,90.95675,50,2
+F00347,Kishoreganj Upazila Health Complex 3,upazila_health_complex,29,24.41003,90.8887,50,2
+F00348,Kishoreganj Upazila Health Complex 4,upazila_health_complex,29,24.19892,90.83475,50,0
+F00349,Kishoreganj Upazila Health Complex 5,upazila_health_complex,29,24.18579,90.85285,31,0
+F00350,Kishoreganj Community Clinic 1,clinic,29,24.24246,91.04335,5,0
+F00351,Kishoreganj Community Clinic 2,clinic,29,24.32076,90.76612,3,0
+F00352,Kishoreganj Community Clinic 3,clinic,29,24.3525,91.04658,5,0
+F00353,Kishoreganj Community Clinic 4,clinic,29,24.1169,91.03591,5,0
+F00354,Kishoreganj Community Clinic 5,clinic,29,24.33617,91.11069,3,0
+F00355,Kishoreganj Community Clinic 6,clinic,29,24.2192,91.02109,7,0
+F00356,Kishoreganj Community Clinic 7,clinic,29,24.38456,90.95936,3,0
+F00357,Kurigram Sadar Hospital,hospital,30,25.8266,89.59162,129,6
+F00358,Kurigram General Hospital 1,hospital,30,25.81666,89.49087,136,13
+F00359,Kurigram Upazila Health Complex 1,upazila_health_complex,30,25.8135,89.63563,31,2
+F00360,Kurigram Upazila Health Complex 2,upazila_health_complex,30,25.8791,89.72815,50,1
+F00361,Kurigram Upazila Health Complex 3,upazila_health_complex,30,25.71969,89.69363,31,2
+F00362,Kurigram Upazila Health Complex 4,upazila_health_complex,30,25.83377,89.61913,31,0
+F00363,Kurigram Community Clinic 1,clinic,30,25.74021,89.57655,4,0
+F00364,Kurigram Community Clinic 2,clinic,30,25.73139,89.77287,2,0
+F00365,Kurigram Community Clinic 3,clinic,30,25.69826,89.51317,5,0
+F00366,Kurigram Community Clinic 4,clinic,30,25.665,89.68219,7,0
+F00367,Kurigram Community Clinic 5,clinic,30,25.68962,89.75554,4,0
+F00368,Kushtia Sadar Hospital,hospital,31,24.05441,89.08665,244,8
+F00369,Kushtia Upazila Health Complex 1,upazila_health_complex,31,23.85181,88.97477,50,2
+F00370,Kushtia Upazila Health Complex 2,upazila_health_complex,31,24.06099,88.86733,50,1
+F00371,Kushtia Upazila Health Complex 3,upazila_health_complex,31,23.94146,88.84907,50,1
+F00372,Kushtia Community Clinic 1,clinic,31,23.8792,89.02702,3,0
+F00373,Kushtia Community Clinic 2,clinic,31,23.90102,88.96603,3,0
+F00374,Kushtia Community Clinic 3,clinic,31,23.90359,89.0521,1,0
+F00375,Kushtia Community Clinic 4,clinic,31,23.72569,89.2412,5,0
+F00376,Kushtia Community Clinic 5,clinic,31,23.79118,88.94217,4,0
+F00377,Kushtia Community Clinic 6,clinic,31,23.85659,89.02247,4,0
+F00378,Lakshmipur Sadar Hospital,hospital,32,22.66727,90.90176,91,7
+F00379,Lakshmipur Upazila Health Complex 1,upazila_health_complex,32,22.90448,90.76433,31,2
+F00380,Lakshmipur Upazila Health Complex 2,upazila_health_complex,32,22.75633,90.81007,31,0
+F00381,Lakshmipur Upazila Health Complex 3,upazila_health_complex,32,22.81536,91.0879,31,2
+F00382,Lakshmipur Community Clinic 1,clinic,32,22.883,90.88619,4,0
+F00383,Lakshmipur Community Clinic 2,clinic,32,22.78951,90.82656,6,0
+F00384,Lakshmipur Community Clinic 3,clinic,32,22.80158,91.00504,4,0
+F00385,Lakshmipur Community Clinic 4,clinic,32,22.93572,90.86361,2,0
+F00386,Lakshmipur Community Clinic 5,clinic,32,22.85386,90.91764,4,0
+F00387,Lakshmipur Community Clinic 6,clinic,32,22.92808,91.04127,9,0
+F00388,Lalmonirhat Sadar Hospital,hospital,33,26.16741,89.20975,89,7
+F00389,Lalmonirhat Upazila Health Complex 1,upazila_health_complex,33,26.11169,89.3854,50,2
+F00390,Lalmonirhat Upazila Health Complex 2,upazila_health_complex,33,26.1824,89.2719,31,0
+F00391,Lalmonirhat Community Clinic 1,clinic,33,26.12306,88.9454,3,0
+F00392,Lalmonirhat Community Clinic 2,clinic,33,25.92167,89.12731,2,0
+F00393,Lalmonirhat Community Clinic 3,clinic,33,26.05076,89.21694,3,0
+F00394,Lalmonirhat Community Clinic 4,clinic,33,26.11802,89.16217,4,0
+F00395,Madaripur Sadar Hospital,hospital,34,23.21537,90.23647,276,25
+F00396,Madaripur Upazila Health Complex 1,upazila_health_complex,34,23.11568,90.09693,50,2
+F00397,Madaripur Upazila Health Complex 2,upazila_health_complex,34,23.17694,90.06448,50,1
+F00398,Madaripur Community Clinic 1,clinic,34,23.31893,90.18032,1,0
+F00399,Madaripur Community Clinic 2,clinic,34,23.2011,89.99445,4,0
+F00400,Madaripur Community Clinic 3,clinic,34,23.04576,90.03512,6,0
+F00401,Magura Sadar Hospital,hospital,35,23.53339,89.49934,425,35
+F00402,Magura Upazila Health Complex 1,upazila_health_complex,35,23.54637,89.3973,31,1
+F00403,Magura Upazila Health Complex 2,upazila_health_complex,35,23.51464,89.42486,31,1
+F00404,Magura Community Clinic 1,clinic,35,23.40976,89.6765,3,0
+F00405,Magura Community Clinic 2,clinic,35,23.47147,89.45603,1,0
+F00406,Magura Community Clinic 3,clinic,35,23.54199,89.38668,1,0
+F00407,Manikganj Sadar Hospital,hospital,36,23.765,89.9591,78,6
+F00408,Manikganj Upazila Health Complex 1,upazila_health_complex,36,23.71819,90.00873,50,2
+F00409,Manikganj Upazila Health Complex 2,upazila_health_complex,36,23.91536,89.95204,31,2
+F00410,Manikganj Upazila Health Complex 3,upazila_health_complex,36,23.95789,89.86407,50,0
+F00411,Manikganj Community Clinic 1,clinic,36,23.84184,90.08661,4,0
+F00412,Manikganj Community Clinic 2,clinic,36,23.93392,90.0799,5,0
+F00413,Manikganj Community Clinic 3,clinic,36,23.75183,89.93685,2,0
+F00414,Manikganj Community Clinic 4,clinic,36,23.71886,89.94362,9,0
+F00415,Meherpur Sadar Hospital,hospital,37,23.72477,88.55528,377,19
+F00416,Meherpur Upazila Health Complex 1,upazila_health_complex,37,23.83645,88.64506,31,2
+F00417,Meherpur Upazila Health Complex 2,upazila_health_complex,37,23.87249,88.72861,50,2
+F00418,Meherpur Community Clinic 1,clinic,37,23.77718,88.58509,3,0
+F00419,Meherpur Community Clinic 2,clinic,37,23.70737,88.74001,5,0
+F00420,Moulvibazar Sadar Hospital,hospital,38,24.65337,91.81399,208,15
+F00421,Moulvibazar Upazila Health Complex 1,upazila_health_complex,38,24.35426,92.01757,31,1
+F00422,Moulvibazar Upazila Health Complex 2,upazila_health_complex,38,24.50976,91.79596,50,0
+F00423,Moulvibazar Upazila Health Complex 3,upazila_health_complex,38,24.4526,91.98329,31,2
+F00424,Moulvibazar Community Clinic 1,clinic,38,24.52005,91.93283,1,0
+F00425,Moulvibazar Community Clinic 2,clinic,38,24.63588,91.93148,5,0
+F00426,Moulvibazar Community Clinic 3,clinic,38,24.64159,91.74057,5,0
+F00427,Moulvibazar Community Clinic 4,clinic,38,24.42508,91.79033,3,0
+F00428,Moulvibazar Community Clinic 5,clinic,38,24.4164,91.71937,2,0
+F00429,Moulvibazar Community Clinic 6,clinic,38,24.47281,91.84647,3,0
+F00430,Munshiganj Sadar Hospital,hospital,39,23.55786,90.37806,122,8
+F00431,Munshiganj Upazila Health Complex 1,upazila_health_complex,39,23.46891,90.30615,50,2
+F00432,Munshiganj Upazila Health Complex 2,upazila_health_complex,39,23.66205,90.4173,50,1
+F00433,Munshiganj Upazila Health Complex 3,upazila_health_complex,39,23.63274,90.41106,50,1
+F00434,Munshiganj Community Clinic 1,clinic,39,23.64912,90.40156,5,0
+F00435,Munshiganj Community Clinic 2,clinic,39,23.52355,90.42418,5,0
+F00436,Munshiganj Community Clinic 3,clinic,39,23.45228,90.52385,5,0
+F00437,Munshiganj Community Clinic 4,clinic,39,23.63854,90.44945,4,0
+F00438,Mymensingh Sadar Hospital,hospital,40,24.9421,90.42914,115,10
+F00439,Mymensingh General Hospital 1,hospital,40,24.71555,90.37498,390,26
+F00440,Mymensingh General Hospital 2,hospital,40,24.70057,90.20956,57,4
+F00441,Mymensingh Upazila Health Complex 1,upazila_health_complex,40,24.69194,90.337,31,0
+F00442,Mymensingh Upazila Health Complex 2,upazila_health_complex,40,24.76661,90.53131,50,1
+F00443,Mymensingh Upazila Health Complex 3,upazila_health_complex,40,24.85187,90.37004,31,2
+F00444,Mymensingh Upazila Health Complex 4,upazila_health_complex,40,24.69797,90.36529,50,1
+F00445,Mymensingh Upazila Health Complex 5,upazila_health_complex,40,24.71961,90.21163,50,1
+F00446,Mymensingh Upazila Health Complex 6,upazila_health_complex,40,24.66705,90.38209,31,0
+F00447,Mymensingh Upazila Health Complex 7,upazila_health_complex,40,24.57443,90.42032,50,2
+F00448,Mymensingh Community Clinic 1,clinic,40,24.68916,90.35338,4,0
+F00449,Mymensingh Community Clinic 2,clinic,40,24.77374,90.44033,3,0
+F00450,Mymensingh Community Clinic 3,clinic,40,24.5927,90.40169,2,0
+F00451,Mymensingh Community Clinic 4,clinic,40,24.7518,90.29488,3,0
+F00452,Mymensingh Community Clinic 5,clinic,40,24.66551,90.34305,1,0
+F00453,Mymensingh Community Clinic 6,clinic,40,24.83534,90.37023,3,0
+F00454,Mymensingh Community Clinic 7,clinic,40,24.53604,90.36975,6,0
+F00455,Mymensingh Community Clinic 8,clinic,40,24.81422,90.48182,5,0
+F00456,Mymensingh Community Clinic 9,clinic,40,24.82785,90.48991,4,0
+F00457,Mymensingh Community Clinic 10,clinic,40,24.76123,90.35544,1,0
+F00458,Mymensingh Community Clinic 11,clinic,40,24.62082,90.48913,4,0
+F00459,Naogaon Sadar Hospital,hospital,41,24.97861,88.60149,158,5
+F00460,Naogaon General Hospital 1,hospital,41,25.0935,88.59101,83,4
+F00461,Naogaon Upazila Health Complex 1,upazila_health_complex,41,24.98828,88.85409,50,2
+F00462,Naogaon Upazila Health Complex 2,upazila_health_complex,41,24.71818,88.62153,50,1
+F00463,Naogaon Upazila Health Complex 3,upazila_health_complex,41,24.89023,88.74532,50,1
+F00464,Naogaon Upazila Health Complex 4,upazila_health_complex,41,25.02737,88.72304,31,1
+F00465,Naogaon Community Clinic 1,clinic,41,24.8453,88.79579,2,0
+F00466,Naogaon Community Clinic 2,clinic,41,24.94015,88.55547,2,0
+F00467,Naogaon Community Clinic 3,clinic,41,24.91838,88.72259,1,0
+F00468,Naogaon Community Clinic 4,clinic,41,24.91524,88.72178,5,0
+F00469,Naogaon Community Clinic 5,clinic,41,24.88716,88.7299,4,0
+F00470,Naogaon Community Clinic 6,clinic,41,24.7387,88.85615,4,0
+F00471,Narail Sadar Hospital,hospital,42,23.19192,89.57009,168,11
+F00472,Narail Upazila Health Complex 1,upazila_health_complex,42,23.08274,89.6076,31,2
+F00473,Narail Upazila Health Complex 2,upazila_health_complex,42,23.14855,89.70378,50,0
+F00474,Narail Community Clinic 1,clinic,42,23.12937,89.52715,5,0
+F00475,Narail Community Clinic 2,clinic,42,23.22419,89.38517,5,0
+F00476,Narayanganj Sadar Hospital,hospital,43,23.6647,90.54818,95,8
+F00477,Narayanganj General Hospital 1,hospital,43,23.63553,90.74104,208,13
+F00478,Narayanganj Upazila Health Complex 1,upazila_health_complex,43,23.80341,90.68469,31,2
+F00479,Narayanganj Upazila Health Complex 2,upazila_health_complex,43,23.73032,90.66201,50,1
+F00480,Narayanganj Upazila Health Complex 3,upazila_health_complex,43,23.75311,90.64883,50,0
+F00481,Narayanganj Upazila Health Complex 4,upazila_health_complex,43,23.78859,90.397,50,2
+F00482,Narayanganj Upazila Health Complex 5,upazila_health_complex,43,23.76293,90.60687,31,0
+F00483,Narayanganj Community Clinic 1,clinic,43,23.84874,90.65946,1,0
+F00484,Narayanganj Community Clinic 2,clinic,43,23.56892,90.65869,6,0
+F00485,Narayanganj Community Clinic 3,clinic,43,23.8424,90.49823,3,0
+F00486,Narayanganj Community Clinic 4,clinic,43,23.69714,90.46475,5,0
+F00487,Narayanganj Community Clinic 5,clinic,43,23.52632,90.51656,4,0
+F00488,Narayanganj Community Clinic 6,clinic,43,23.76945,90.397,4,0
+F00489,Narayanganj Community Clinic 7,clinic,43,23.75202,90.52703,4,0
+F00490,Narayanganj Community Clinic 8,clinic,43,23.60459,90.50248,4,0
+F00491,Narsingdi Sadar Hospital,hospital,44,24.18307,90.80884,203,11
+F00492,Narsingdi General Hospital 1,hospital,44,23.7873,90.70482,144,8
+F00493,Narsingdi Upazila Health Complex 1,upazila_health_complex,44,23.94907,90.77807,31,1
+F00494,Narsingdi Upazila Health Complex 2,upazila_health_complex,44,23.97774,90.74102,50,0
+F00495,Narsingdi Upazila Health Complex 3,upazila_health_complex,44,24.12599,90.84579,31,2
+F00496,Narsingdi Upazila Health Complex 4,upazila_health_complex,44,24.0514,90.78205,50,2
+F00497,Narsingdi Community Clinic 1,clinic,44,24.10654,90.65253,2,0
+F00498,Narsingdi Community Clinic 2,clinic,44,24.14716,90.89924,5,0
+F00499,Narsingdi Community Clinic 3,clinic,44,23.79826,90.823,4,0
+F00500,Narsingdi Community Clinic 4,clinic,44,23.94023,90.81959,4,0
+F00501,Narsingdi Community Clinic 5,clinic,44,24.02499,90.78227,0,0
+F00502,Narsingdi Community Clinic 6,clinic,44,23.92492,90.79043,4,0
+F00503,Natore Sadar Hospital,hospital,45,24.51594,89.16636,50,4
+F00504,Natore Upazila Health Complex 1,upazila_health_complex,45,24.45955,89.00494,50,1
+F00505,Natore Upazila Health Complex 2,upazila_health_complex,45,24.33327,89.1584,31,2
+F00506,Natore Upazila Health Complex 3,upazila_health_complex,45,24.43116,89.04023,50,0
+F00507,Natore Community Clinic 1,clinic,45,24.46784,89.09447,1,0
+F00508,Natore Community Clinic 2,clinic,45,24.40655,89.05707,5,0
+F00509,Natore Community Clinic 3,clinic,45,24.31866,89.18837,3,0
+F00510,Natore Community Clinic 4,clinic,45,24.42451,88.93794,5,0
+F00511,Natore Community Clinic 5,clinic,45,24.32163,89.14384,4,0
+F00512,Netrokona Sadar Hospital,hospital,46,24.79418,90.74316,154,6
+F00513,Netrokona General Hospital 1,hospital,46,24.92392,90.91741,424,16
+F00514,Netrokona Upazila Health Complex 1,upazila_health_complex,46,24.93788,90.74862,50,0
+F00515,Netrokona Upazila Health Complex 2,upazila_health_complex,46,24.85072,90.81609,31,0
+F00516,Netrokona Upazila Health Complex 3,upazila_health_complex,46,24.82556,90.69935,50,0
+F00517,Netrokona Upazila Health Complex 4,upazila_health_complex,46,24.77392,90.64037,50,2
+F00518,Netrokona Community Clinic 1,clinic,46,24.86807,90.83752,2,0
+F00519,Netrokona Community Clinic 2,clinic,46,25.00077,90.82119,4,0
+F00520,Netrokona Community Clinic 3,clinic,46,24.68913,90.79639,4,0
+F00521,Netrokona Community Clinic 4,clinic,46,24.74087,90.86704,7,0
+F00522,Netrokona Community Clinic 5,clinic,46,24.73277,90.87174,3,0
+F00523,Nilphamari Sadar Hospital,hospital,47,25.94592,88.7366,552,21
+F00524,Nilphamari Upazila Health Complex 1,upazila_health_complex,47,26.17866,88.99905,50,0
+F00525,Nilphamari Upazila Health Complex 2,upazila_health_complex,47,26.03003,88.91981,50,0
+F00526,Nilphamari Upazila Health Complex 3,upazila_health_complex,47,26.2405,88.93934,31,2
+F00527,Nilphamari Community Clinic 1,clinic,47,26.10016,88.90024,4,0
+F00528,Nilphamari Community Clinic 2,clinic,47,25.9343,89.142,3,0
+F00529,Nilphamari Community Clinic 3,clinic,47,26.05759,89.02111,6,0
+F00530,Nilphamari Community Clinic 4,clinic,47,25.96468,88.84811,2,0
+F00531,Nilphamari Community Clinic 5,clinic,47,25.92336,89.02147,3,0
+F00532,Nilphamari Community Clinic 6,clinic,47,26.09351,88.85835,2,0
+F00533,Noakhali Sadar Hospital,hospital,48,22.65324,90.9102,402,20
+F00534,Noakhali General Hospital 1,hospital,48,22.81187,91.21815,330,19
+F00535,Noakhali Upazila Health Complex 1,upazila_health_complex,48,22.81845,91.07453,31,0
+F00536,Noakhali Upazila Health Complex 2,upazila_health_complex,48,22.74062,91.05661,50,1
+F00537,Noakhali Upazila Health Complex 3,upazila_health_complex,48,22.81404,90.9279,50,1
+F00538,Noakhali Upazila Health Complex 4,upazila_health_complex,48,22.77633,91.12352,50,1
+F00539,Noakhali Upazila Health Complex 5,upazila_health_complex,48,22.88976,91.19336,50,1
+F00540,Noakhali Community Clinic 1,clinic,48,22.83015,91.13291,3,0
+F00541,Noakhali Community Clinic 2,clinic,48,22.7452,91.15316,7,0
+F00542,Noakhali Community Clinic 3,clinic,48,22.76975,91.13695,6,0
+F00543,Noakhali Community Clinic 4,clinic,48,22.72394,91.13642,3,0
+F00544,Noakhali Community Clinic 5,clinic,48,22.84396,91.05342,4,0
+F00545,Noakhali Community Clinic 6,clinic,48,22.87322,91.13458,2,0
+F00546,Noakhali Community Clinic 7,clinic,48,22.81974,91.17735,5,0
+F00547,Noakhali Community Clinic 8,clinic,48,23.0081,91.18325,1,0
+F00548,Pabna Sadar Hospital,hospital,49,24.10359,89.46506,163,16
+F00549,Pabna General Hospital 1,hospital,49,24.08335,89.49637,135,4
+F00550,Pabna Upazila Health Complex 1,upazila_health_complex,49,24.0698,89.31554,31,0
+F00551,Pabna Upazila Health Complex 2,upazila_health_complex,49,24.17312,89.36029,50,0
+F00552,Pabna Upazila Health Complex 3,upazila_health_complex,49,24.00533,89.41073,50,2
+F00553,Pabna Upazila Health Complex 4,upazila_health_complex,49,23.8609,89.55837,50,2
+F00554,Pabna Community Clinic 1,clinic,49,23.99186,89.27625,4,0
+F00555,Pabna Community Clinic 2,clinic,49,24.17146,89.35916,4,0
+F00556,Pabna Community Clinic 3,clinic,49,24.13169,89.13463,4,0
+F00557,Pabna Community Clinic 4,clinic,49,24.14365,89.38033,3,0
+F00558,Pabna Community Clinic 5,clinic,49,23.9186,89.30192,6,0
+F00559,Pabna Community Clinic 6,clinic,49,24.09657,89.31142,4,0
+F00560,Panchagarh Sadar Hospital,hospital,50,26.37414,88.64199,59,2
+F00561,Panchagarh Upazila Health Complex 1,upazila_health_complex,50,26.40635,88.62055,50,0
+F00562,Panchagarh Upazila Health Complex 2,upazila_health_complex,50,26.28289,88.68506,50,2
+F00563,Panchagarh Community Clinic 1,clinic,50,26.39894,88.54488,2,0
+F00564,Panchagarh Community Clinic 2,clinic,50,26.35762,88.65781,3,0
+F00565,Panchagarh Community Clinic 3,clinic,50,26.4254,88.53317,6,0
+F00566,Patuakhali Sadar Hospital,hospital,51,22.34239,90.50045,342,27
+F00567,Patuakhali Upazila Health Complex 1,upazila_health_complex,51,22.39493,90.54075,50,2
+F00568,Patuakhali Upazila Health Complex 2,upazila_health_complex,51,22.10968,90.38798,50,1
+F00569,Patuakhali Upazila Health Complex 3,upazila_health_complex,51,22.14812,90.28301,50,0
+F00570,Patuakhali Community Clinic 1,clinic,51,22.35461,90.26045,1,0
+F00571,Patuakhali Community Clinic 2,clinic,51,22.4785,90.46686,3,0
+F00572,Patuakhali Community Clinic 3,clinic,51,22.40192,90.43635,2,0
+F00573,Patuakhali Community Clinic 4,clinic,51,22.12864,90.57918,2,0
+F00574,Pirojpur Sadar Hospital,hospital,52,22.46051,89.98819,147,12
+F00575,Pirojpur Upazila Health Complex 1,upazila_health_complex,52,22.47232,90.0233,50,0
+F00576,Pirojpur Upazila Health Complex 2,upazila_health_complex,52,22.4861,89.91274,50,1
+F00577,Pirojpur Community Clinic 1,clinic,52,22.50572,89.8793,3,0
+F00578,Pirojpur Community Clinic 2,clinic,52,22.53203,89.99111,3,0
+F00579,Pirojpur Community Clinic 3,clinic,52,22.51171,90.05404,5,0
+F00580,Rajbari Sadar Hospital,hospital,53,23.56824,89.76882,246,11
+F00581,Rajbari Upazila Health Complex 1,upazila_health_complex,53,23.81287,89.57788,50,0
+F00582,Rajbari Upazila Health Complex 2,upazila_health_complex,53,23.80163,89.49889,50,2
+F00583,Rajbari Community Clinic 1,clinic,53,23.6745,89.49185,6,0
+F00584,Rajbari Community Clinic 2,clinic,53,23.6712,89.57508,3,0
+F00585,Rajbari Community Clinic 3,clinic,53,23.81527,89.54486,3,0
+F00586,Rajshahi Sadar Hospital,hospital,54,24.42808,88.51319,156,10
+F00587,Rajshahi General Hospital 1,hospital,54,24.34822,88.62405,151,10
+F00588,Rajshahi Upazila Health Complex 1,upazila_health_complex,54,24.35856,88.43983,50,1
+F00589,Rajshahi Upazila Health Complex 2,upazila_health_complex,54,24.41212,88.53207,50,1
+F00590,Rajshahi Upazila Health Complex 3,upazila_health_complex,54,24.30134,88.44444,31,2
+F00591,Rajshahi Upazila Health Complex 4,upazila_health_complex,54,24.35808,88.67039,31,0
+F00592,Rajshahi Community Clinic 1,clinic,54,24.60281,88.50544,3,0
+F00593,Rajshahi Community Clinic 2,clinic,54,24.32463,88.66608,6,0
+F00594,Rajshahi Community Clinic 3,clinic,54,24.53127,88.58375,3,0
+F00595,Rajshahi Community Clinic 4,clinic,54,24.6352,88.722,3,0
+F00596,Rajshahi Community Clinic 5,clinic,54,24.45187,88.68243,4,0
+F00597,Rajshahi Community Clinic 6,clinic,54,24.51832,88.52832,7,0
+F00598,Rajshahi Community Clinic 7,clinic,54,24.37102,88.72592,4,0
+F00599,Rangamati Sadar Hospital,hospital,55,22.76579,92.35408,88,5
+F00600,Rangamati Upazila Health Complex 1,upazila_health_complex,55,22.90868,92.27513,50,0
+F00601,Rangamati Upazila Health Complex 2,upazila_health_complex,55,22.86507,92.16052,50,1
+F00602,Rangamati Community Clinic 1,clinic,55,22.80473,92.20176,6,0
+F00603,Rangamati Community Clinic 2,clinic,55,22.77637,92.27813,6,0
+F00604,Rangpur Sadar Hospital,hospital,56,25.67615,89.32755,50,3
+F00605,Rangpur General Hospital 1,hospital,56,25.57606,89.3419,187,9
+F00606,Rangpur Upazila Health Complex 1,upazila_health_complex,56,25.59166,89.16183,50,1
+F00607,Rangpur Upazila Health Complex 2,upazila_health_complex,56,25.46466,89.18824,31,1
+F00608,Rangpur Upazila Health Complex 3,upazila_health_complex,56,25.66915,89.28368,31,1
+F00609,Rangpur Upazila Health Complex 4,upazila_health_complex,56,25.57684,89.24681,31,1
+F00610,Rangpur Upazila Health Complex 5,upazila_health_complex,56,25.71075,89.41882,31,2
+F00611,Rangpur Community Clinic 1,clinic,56,25.75564,89.19892,3,0
+F00612,Rangpur Community Clinic 2,clinic,56,25.62222,89.17057,6,0
+F00613,Rangpur Community Clinic 3,clinic,56,25.63952,89.39201,4,0
+F00614,Rangpur Community Clinic 4,clinic,56,25.56946,89.29259,5,0
+F00615,Rangpur Community Clinic 5,clinic,56,25.58561,89.14002,0,0
+F00616,Rangpur Community Clinic 6,clinic,56,25.61325,89.1678,5,0
+F00617,Rangpur Community Clinic 7,clinic,56,25.71971,89.27689,5,0
+F00618,Satkhira Sadar Hospital,hospital,57,22.51979,89.08747,180,13
+F00619,Satkhira Upazila Health Complex 1,upazila_health_complex,57,22.56973,89.21405,50,2
+F00620,Satkhira Upazila Health Complex 2,upazila_health_complex,57,22.35702,88.99959,50,0
+F00621,Satkhira Upazila Health Complex 3,upazila_health_complex,57,22.3635,89.14789,50,1
+F00622,Satkhira Community Clinic 1,clinic,57,22.51077,89.13948,4,0
+F00623,Satkhira Community Clinic 2,clinic,57,22.52873,89.04367,3,0
+F00624,Satkhira Community Clinic 3,clinic,57,22.34092,89.11734,2,0
+F00625,Satkhira Community Clinic 4,clinic,57,22.33424,89.27518,4,0
+F00626,Satkhira Community Clinic 5,clinic,57,22.60785,89.14036,5,0
+F00627,Satkhira Community Clinic 6,clinic,57,22.34241,89.14501,7,0
+F00628,Shariatpur Sadar Hospital,hospital,58,23.09933,90.40117,68,3
+F00629,Shariatpur Upazila Health Complex 1,upazila_health_complex,58,23.13291,90.28771,50,2
+F00630,Shariatpur Upazila Health Complex 2,upazila_health_complex,58,23.20309,90.46478,31,1
+F00631,Shariatpur Community Clinic 1,clinic,58,23.23708,90.38102,6,0
+F00632,Shariatpur Community Clinic 2,clinic,58,23.42398,90.53866,4,0
+F00633,Shariatpur Community Clinic 3,clinic,58,23.28548,90.4252,4,0
+F00634,Sherpur Sadar Hospital,hospital,59,25.27765,90.3151,169,16
+F00635,Sherpur Upazila Health Complex 1,upazila_health_complex,59,25.15858,90.25341,50,1
+F00636,Sherpur Upazila Health Complex 2,upazila_health_complex,59,25.25138,89.95154,31,2
+F00637,Sherpur Community Clinic 1,clinic,59,25.22929,90.02021,3,0
+F00638,Sherpur Community Clinic 2,clinic,59,25.28078,90.0137,5,0
+F00639,Sherpur Community Clinic 3,clinic,59,25.09011,90.12555,2,0
+F00640,Sherpur Community Clinic 4,clinic,59,25.08543,90.05736,3,0
+F00641,Sirajganj Sadar Hospital,hospital,60,24.4656,89.53245,222,19
+F00642,Sirajganj General Hospital 1,hospital,60,24.44498,89.56485,160,7
+F00643,Sirajganj Upazila Health Complex 1,upazila_health_complex,60,24.26927,89.39227,31,2
+F00644,Sirajganj Upazila Health Complex 2,upazila_health_complex,60,24.36449,89.53882,50,2
+F00645,Sirajganj Upazila Health Complex 3,upazila_health_complex,60,24.40258,89.58536,31,2
+F00646,Sirajganj Upazila Health Complex 4,upazila_health_complex,60,24.49805,89.52477,50,1
+F00647,Sirajganj Upazila Health Complex 5,upazila_health_complex,60,24.42509,89.57078,50,0
+F00648,Sirajganj Community Clinic 1,clinic,60,24.51527,89.54313,3,0
+F00649,Sirajganj Community Clinic 2,clinic,60,24.49718,89.61399,4,0
+F00650,Sirajganj Community Clinic 3,clinic,60,24.51742,89.64121,0,0
+F00651,Sirajganj Community Clinic 4,clinic,60,24.41752,89.44294,4,0
+F00652,Sirajganj Community Clinic 5,clinic,60,24.22933,89.43756,6,0
+F00653,Sirajganj Community Clinic 6,clinic,60,24.27873,89.40672,5,0
+F00654,Sirajganj Community Clinic 7,clinic,60,24.47302,89.5868,1,0
+F00655,Sirajganj Community Clinic 8,clinic,60,24.41466,89.56533,2,0
+F00656,Sunamganj Sadar Hospital,hospital,61,24.95223,91.38827,202,19
+F00657,Sunamganj General Hospital 1,hospital,61,24.87779,91.27082,103,3
+F00658,Sunamganj Upazila Health Complex 1,upazila_health_complex,61,24.80396,91.45335,50,2
+F00659,Sunamganj Upazila Health Complex 2,upazila_health_complex,61,24.70939,91.52727,50,1
+F00660,Sunamganj Upazila Health Complex 3,upazila_health_complex,61,24.74629,91.44426,31,0
+F00661,Sunamganj Upazila Health Complex 4,upazila_health_complex,61,24.81957,91.1708,50,2
+F00662,Sunamganj Community Clinic 1,clinic,61,24.7084,91.29052,1,0
+F00663,Sunamganj Community Clinic 2,clinic,61,24.9497,91.35655,0,0
+F00664,Sunamganj Community Clinic 3,clinic,61,25.03415,91.34501,1,0
+F00665,Sunamganj Community Clinic 4,clinic,61,24.84523,91.25081,4,0
+F00666,Sunamganj Community Clinic 5,clinic,61,24.77333,91.33382,5,0
+F00667,Sunamganj Community Clinic 6,clinic,61,24.89178,91.4853,3,0
+F00668,Sunamganj Community Clinic 7,clinic,61,24.87161,91.28965,3,0
+F00669,Sylhet Sadar Hospital,hospital,62,24.72333,92.03726,115,10
+F00670,Sylhet General Hospital 1,hospital,62,24.99124,91.90275,250,11
+F00671,Sylhet Upazila Health Complex 1,upazila_health_complex,62,25.02669,91.7383,50,0
+F00672,Sylhet Upazila Health Complex 2,upazila_health_complex,62,24.80859,92.00175,50,1
+F00673,Sylhet Upazila Health Complex 3,upazila_health_complex,62,24.90928,92.06208,50,1
+F00674,Sylhet Upazila Health Complex 4,upazila_health_complex,62,24.97862,91.96631,50,1
+F00675,Sylhet Upazila Health Complex 5,upazila_health_complex,62,24.90403,91.80645,50,0
+F00676,Sylhet Upazila Health Complex 6,upazila_health_complex,62,24.94124,91.9983,50,1
+F00677,Sylhet Community Clinic 1,clinic,62,24.90941,91.86058,4,0
+F00678,Sylhet Community Clinic 2,clinic,62,24.84664,91.88538,6,0
+F00679,Sylhet Community Clinic 3,clinic,62,24.83546,91.91182,7,0
+F00680,Sylhet Community Clinic 4,clinic,62,24.94106,91.79474,7,0
+F00681,Sylhet Community Clinic 5,clinic,62,24.92974,91.89471,6,0
+F00682,Sylhet Community Clinic 6,clinic,62,24.88546,91.95371,1,0
+F00683,Sylhet Community Clinic 7,clinic,62,24.88895,92.0633,5,0
+F00684,Sylhet Community Clinic 8,clinic,62,24.94957,91.83938,0,0
+F00685,Sylhet Community Clinic 9,clinic,62,24.84056,91.92681,4,0
+F00686,Tangail Sadar Hospital,hospital,63,24.26299,90.05114,294,23
+F00687,Tangail General Hospital 1,hospital,63,24.30884,89.93554,135,4
+F00688,Tangail Upazila Health Complex 1,upazila_health_complex,63,24.27793,89.95208,50,0
+F00689,Tangail Upazila Health Complex 2,upazila_health_complex,63,24.42542,89.86083,50,1
+F00690,Tangail Upazila Health Complex 3,upazila_health_complex,63,24.40354,89.99884,50,2
+F00691,Tangail Upazila Health Complex 4,upazila_health_complex,63,24.2553,89.99688,50,1
+F00692,Tangail Upazila Health Complex 5,upazila_health_complex,63,24.38524,89.97405,50,2
+F00693,Tangail Community Clinic 1,clinic,63,24.37686,89.84076,3,0
+F00694,Tangail Community Clinic 2,clinic,63,24.20189,89.91508,4,0
+F00695,Tangail Community Clinic 3,clinic,63,24.34677,89.95108,6,0
+F00696,Tangail Community Clinic 4,clinic,63,24.36708,89.99457,5,0
+F00697,Tangail Community Clinic 5,clinic,63,24.32205,90.0793,3,0
+F00698,Tangail Community Clinic 6,clinic,63,24.50843,89.93765,6,0
+F00699,Tangail Community Clinic 7,clinic,63,24.29519,90.14809,4,0
+F00700,Tangail Community Clinic 8,clinic,63,24.35004,90.11528,2,0
+F00701,Tangail Community Clinic 9,clinic,63,24.40068,90.04057,6,0
+F00702,Thakurgaon Sadar Hospital,hospital,64,25.87465,88.32447,176,9
+F00703,Thakurgaon Upazila Health Complex 1,upazila_health_complex,64,25.72897,88.33532,50,2
+F00704,Thakurgaon Upazila Health Complex 2,upazila_health_complex,64,25.83636,88.23824,31,2
+F00705,Thakurgaon Upazila Health Complex 3,upazila_health_complex,64,26.00182,88.32201,50,2
+F00706,Thakurgaon Community Clinic 1,clinic,64,25.76571,88.22666,6,0
+F00707,Thakurgaon Community Clinic 2,clinic,64,25.7162,88.5307,6,0
+F00708,Thakurgaon Community Clinic 3,clinic,64,25.89189,88.46292,8,0
+F00709,Thakurgaon Community Clinic 4,clinic,64,25.84267,88.35804,7,0
