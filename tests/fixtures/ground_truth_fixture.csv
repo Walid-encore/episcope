@@ -1,0 +1,5 @@
+outbreak_id,district_code,disease,start_date,end_date,peak_multiplier,kind
+O001,01,dengue,2021-08-02,2021-09-05,4.0,local
+O002,02,diarrhoeal,2022-03-07,2022-05-29,2.5,slow_growth
+O003,03,diarrhoeal,2022-09-05,2022-10-02,3.5,local
+O004,01,dengue,2023-08-14,2023-09-24,3.0,local
