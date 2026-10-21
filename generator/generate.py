@@ -12,7 +12,8 @@ Outputs under --out-dir (default data/):
   incoming/encounters/batch_week=YYYY-MM-DD/part-*.csv   S4, one folder per report week
   incoming/stock/batch_week=YYYY-MM-DD/stock_*.jsonl     S6
   reference/facilities.csv                                S5
-  ground_truth/outbreaks.csv, outbreak_days.csv           EVALUATION ONLY
+  truth/ground_truth_outbreaks.csv                        EVALUATION ONLY (columns exactly as schema.md)
+  truth/ground_truth_outbreak_extras.csv, ground_truth_artefacts.csv, ground_truth_outbreak_days.csv
 """
 from __future__ import annotations
 
@@ -41,11 +42,14 @@ def stage(name, t0):
 def write_reference_and_truth(model, out_dir, ref_dir):
     ref_dir.mkdir(parents=True, exist_ok=True)
     model.fac[FAC_COLS].to_csv(ref_dir / "facilities.csv", index=False, encoding="utf-8")
-    gt = out_dir / "ground_truth"
-    gt.mkdir(parents=True, exist_ok=True)
-    model.outbreaks.to_csv(gt / "outbreaks.csv", index=False, encoding="utf-8")
-    model.outbreak_days.to_csv(gt / "outbreak_days.csv", index=False, encoding="utf-8")
-    (gt / "README.txt").write_text(
+    truth = out_dir / "truth"
+    truth.mkdir(parents=True, exist_ok=True)
+    main, extras, art = M.export_truth(model.outbreaks)
+    main.to_csv(truth / "ground_truth_outbreaks.csv", index=False, encoding="utf-8")
+    extras.to_csv(truth / "ground_truth_outbreak_extras.csv", index=False, encoding="utf-8")
+    art.to_csv(truth / "ground_truth_artefacts.csv", index=False, encoding="utf-8")
+    model.outbreak_days.to_csv(truth / "ground_truth_outbreak_days.csv", index=False, encoding="utf-8")
+    (truth / "README.txt").write_text(
         "EVALUATION ONLY. Detection and forecasting code must never read this folder.\n", encoding="utf-8")
 
 
@@ -133,7 +137,7 @@ def main(argv=None):
         for sub in ("encounters", "stock"):
             shutil.rmtree(out_dir / "incoming" / sub, ignore_errors=True)
     write_reference_and_truth(model, out_dir, ref_dir)
-    stage(f"wrote {ref_dir / 'facilities.csv'} and ground_truth/", t0)
+    stage(f"wrote {ref_dir / 'facilities.csv'} and truth/", t0)
 
     n_stock = write_stock(model, M.simulate_stock(model), out_dir, cfg.seed, a.report_from, a.report_to)
     stage(f"wrote stock snapshots: {n_stock:,} JSON lines", t0)

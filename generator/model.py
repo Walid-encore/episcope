@@ -361,6 +361,28 @@ def place_and_inject(cfg, rng, dist, mu, counts, dates, artefacts):
     return pd.DataFrame(gt), pd.DataFrame(days, columns=["outbreak_id", "district_code", "date", "extra_cases"])
 
 
+# --------------------------------------------------------------------------- truth export
+KIND_MAP = {"local_sharp": "local", "local_slow": "slow_growth", "national_surge": "national_surge"}
+TRUTH_COLS = ["outbreak_id", "district_code", "disease", "start_date", "end_date",
+              "peak_multiplier", "kind"]                      # exactly as docs/schema.md
+EXTRA_COLS = ["outbreak_id", "peak_date", "expected_extra_cases", "realised_extra_cases"]
+ARTEFACT_COLS = ["artefact_id", "facility_id", "district_code", "silent_start", "silent_end", "backfill_date"]
+
+
+def export_truth(gt: pd.DataFrame):
+    """Split the internal ground truth into (schema file, extras, reporting artefacts)."""
+    ob = gt[gt["kind"] != "reporting_artefact"]
+    main = pd.DataFrame({
+        "outbreak_id": ob["outbreak_id"], "district_code": ob["district_code"],
+        "disease": ob["disease_group"], "start_date": ob["start_date"], "end_date": ob["end_date"],
+        "peak_multiplier": ob["peak_multiplier"].astype(float), "kind": ob["kind"].map(KIND_MAP)})[TRUTH_COLS]
+    extras = ob[EXTRA_COLS].reset_index(drop=True)
+    art = (gt[gt["kind"] == "reporting_artefact"]
+           .rename(columns={"outbreak_id": "artefact_id", "start_date": "silent_start", "end_date": "silent_end"})
+           [ARTEFACT_COLS].reset_index(drop=True))
+    return main.reset_index(drop=True), extras, art
+
+
 # --------------------------------------------------------------------------- top level
 def build(cfg: Config, ref_dir) -> Model:
     r_layout, r_het, r_counts, r_out, r_art = (_rng(cfg.seed, k) for k in range(5))

@@ -93,6 +93,18 @@ def test_outbreak_ground_truth():
         assert (pd.to_datetime(g.start_date.iloc[1:].values) > pd.to_datetime(g.end_date.iloc[:-1].values)).all()
 
 
+def test_truth_export_matches_schema_md():
+    main, extras, art = M.export_truth(model().outbreaks)
+    assert list(main.columns) == ["outbreak_id", "district_code", "disease", "start_date", "end_date",
+                                  "peak_multiplier", "kind"]
+    assert set(main["kind"]) <= {"local", "slow_growth", "national_surge"}
+    assert {"local", "slow_growth", "national_surge"} <= set(main["kind"])
+    assert (main["district_code"].isin(["ALL"]) | main["district_code"].str.fullmatch(r"\d\d")).all()
+    assert set(main["disease"]) <= {"dengue", "diarrhoeal", "ili", "malaria"}
+    assert len(main) == len(extras) and len(art) == len(model().artefacts)
+    assert list(art.columns) == M.ARTEFACT_COLS
+
+
 def test_artefact_respects_21_day_rule():
     for a in model().artefacts:
         silent = (pd.Timestamp(a["silent_end"]) - pd.Timestamp(a["silent_start"])).days + 1
