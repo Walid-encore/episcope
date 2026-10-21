@@ -13,7 +13,8 @@ Outputs under --out-dir (default data/):
   incoming/stock/batch_week=YYYY-MM-DD/stock_*.jsonl     S6
   reference/facilities.csv                                S5
   truth/ground_truth_outbreaks.csv                        EVALUATION ONLY (columns exactly as schema.md)
-  truth/ground_truth_outbreak_extras.csv, ground_truth_artefacts.csv, ground_truth_outbreak_days.csv
+  truth/ground_truth_artefacts.csv (district x disease, as the eval fixture), ground_truth_artefact_facilities.csv,
+  truth/ground_truth_outbreak_extras.csv, ground_truth_outbreak_days.csv
 """
 from __future__ import annotations
 
@@ -48,6 +49,8 @@ def write_reference_and_truth(model, out_dir, ref_dir):
     main.to_csv(truth / "ground_truth_outbreaks.csv", index=False, encoding="utf-8")
     extras.to_csv(truth / "ground_truth_outbreak_extras.csv", index=False, encoding="utf-8")
     art.to_csv(truth / "ground_truth_artefacts.csv", index=False, encoding="utf-8")
+    M.export_artefact_facilities(model.outbreaks).to_csv(
+        truth / "ground_truth_artefact_facilities.csv", index=False, encoding="utf-8")
     model.outbreak_days.to_csv(truth / "ground_truth_outbreak_days.csv", index=False, encoding="utf-8")
     (truth / "README.txt").write_text(
         "EVALUATION ONLY. Detection and forecasting code must never read this folder.\n", encoding="utf-8")

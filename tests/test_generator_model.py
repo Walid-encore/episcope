@@ -101,8 +101,24 @@ def test_truth_export_matches_schema_md():
     assert {"local", "slow_growth", "national_surge"} <= set(main["kind"])
     assert (main["district_code"].isin(["ALL"]) | main["district_code"].str.fullmatch(r"\d\d")).all()
     assert set(main["disease"]) <= {"dengue", "diarrhoeal", "ili", "malaria"}
-    assert len(main) == len(extras) and len(art) == len(model().artefacts)
+    assert len(main) == len(extras)
     assert list(art.columns) == M.ARTEFACT_COLS
+    # one row per district x disease for every silent facility
+    assert len(art) == len(M.ARTEFACT_DISEASES) * len(model().artefacts)
+    assert set(art["disease"]) == set(M.ARTEFACT_DISEASES)
+    assert art["district_code"].str.fullmatch(r"\d\d").all()
+
+
+def test_artefact_file_matches_evaluation_fixture():
+    fixture = Path(__file__).resolve().parent / "fixtures" / "artefact_fixture.csv"
+    if fixture.exists():                      # the Analytics teammate's reader expects exactly these columns
+        fx = pd.read_csv(fixture, dtype=str)
+        _, _, art = M.export_truth(model().outbreaks)
+        assert list(art.columns) == list(fx.columns)
+    _, _, art = M.export_truth(model().outbreaks)
+    assert (pd.to_datetime(art["backfill_week_start"]).dt.weekday == 0).all()    # always a Monday
+    fac = M.export_artefact_facilities(model().outbreaks)
+    assert len(fac) == len(model().artefacts) and list(fac.columns) == M.ARTEFACT_FAC_COLS
 
 
 def test_artefact_respects_21_day_rule():

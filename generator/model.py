@@ -366,21 +366,42 @@ KIND_MAP = {"local_sharp": "local", "local_slow": "slow_growth", "national_surge
 TRUTH_COLS = ["outbreak_id", "district_code", "disease", "start_date", "end_date",
               "peak_multiplier", "kind"]                      # exactly as docs/schema.md
 EXTRA_COLS = ["outbreak_id", "peak_date", "expected_extra_cases", "realised_extra_cases"]
-ARTEFACT_COLS = ["artefact_id", "facility_id", "district_code", "silent_start", "silent_end", "backfill_date"]
+ARTEFACT_COLS = ["district_code", "disease", "silent_start", "silent_end",
+                 "backfill_week_start"]                      # matches tests/fixtures/artefact_fixture.csv
+ARTEFACT_FAC_COLS = ["artefact_id", "facility_id", "district_code", "silent_start", "silent_end",
+                     "backfill_date"]
+ARTEFACT_DISEASES = ["dengue", "diarrhoeal", "ili", "malaria"]   # a silent hospital silences all of them
+
+
+def _monday(iso_date: str) -> str:
+    d = pd.Timestamp(iso_date)
+    return (d - pd.Timedelta(days=int(d.weekday()))).date().isoformat()
 
 
 def export_truth(gt: pd.DataFrame):
-    """Split the internal ground truth into (schema file, extras, reporting artefacts)."""
+    """Split the internal ground truth into (schema file, extras, reporting artefacts).
+    Artefacts are one row per district x disease, in the evaluation fixture's format."""
     ob = gt[gt["kind"] != "reporting_artefact"]
     main = pd.DataFrame({
         "outbreak_id": ob["outbreak_id"], "district_code": ob["district_code"],
         "disease": ob["disease_group"], "start_date": ob["start_date"], "end_date": ob["end_date"],
         "peak_multiplier": ob["peak_multiplier"].astype(float), "kind": ob["kind"].map(KIND_MAP)})[TRUTH_COLS]
     extras = ob[EXTRA_COLS].reset_index(drop=True)
-    art = (gt[gt["kind"] == "reporting_artefact"]
-           .rename(columns={"outbreak_id": "artefact_id", "start_date": "silent_start", "end_date": "silent_end"})
-           [ARTEFACT_COLS].reset_index(drop=True))
+    ar = gt[gt["kind"] == "reporting_artefact"]
+    rows = [dict(district_code=r["district_code"], disease=d, silent_start=r["start_date"],
+                 silent_end=r["end_date"], backfill_week_start=_monday(r["backfill_date"]))
+            for _, r in ar.iterrows() for d in ARTEFACT_DISEASES]
+    art = pd.DataFrame(rows, columns=ARTEFACT_COLS)
     return main.reset_index(drop=True), extras, art
+
+
+def export_artefact_facilities(gt: pd.DataFrame) -> pd.DataFrame:
+    """Facility-level detail for the artefacts (not read by the evaluation code)."""
+    ar = gt[gt["kind"] == "reporting_artefact"]
+    return pd.DataFrame({
+        "artefact_id": ar["outbreak_id"], "facility_id": ar["facility_id"],
+        "district_code": ar["district_code"], "silent_start": ar["start_date"],
+        "silent_end": ar["end_date"], "backfill_date": ar["backfill_date"]})[ARTEFACT_FAC_COLS].reset_index(drop=True)
 
 
 # --------------------------------------------------------------------------- top level
