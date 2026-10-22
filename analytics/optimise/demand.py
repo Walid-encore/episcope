@@ -59,13 +59,22 @@ def _convert(cases, admissions, disease, a):
     }
 
 
-def compute_demand(forecast, rates, assumptions=None, model="nb_lagged_weather"):
+def _require_full_horizons(f, max_horizon=4):
+    got = f.groupby(KEYS)["horizon_weeks"].nunique()
+    short = got[got < max_horizon]
+    if len(short):
+        raise ValueError(f"{len(short)} series lack all {max_horizon} live horizons, "
+                         f"e.g. {short.index[:3].tolist()}")
+
+
+def compute_demand(forecast, rates, assumptions=None, model="nb_lagged_weather", max_horizon=4):
     """forecast = gold_forecast rows. Uses live (non-backtest) rows of `model` from the latest origin per series."""
     a = ASSUMPTIONS if assumptions is None else assumptions
     f = forecast[(forecast["model"] == model) & (~forecast["is_backtest"].astype(bool))].copy()
     f["district_code"] = f["district_code"].astype(str).str.zfill(2)
     f["_origin"] = f["origin_epi_year"] * 100 + f["origin_epi_week"]
     f = f[f["_origin"] == f.groupby(KEYS)["_origin"].transform("max")]
+    _require_full_horizons(f, max_horizon)
     f = f.merge(rates, on=KEYS, how="left", validate="many_to_one")
     f["admission_rate"] = f["admission_rate"].fillna(f["disease"].map(a["fallback_admission_rate"]))
     out = f[KEYS + ["target_epi_year", "target_epi_week", "target_week_start_date", "horizon_weeks"]].copy()

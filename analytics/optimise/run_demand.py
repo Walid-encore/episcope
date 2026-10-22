@@ -12,6 +12,7 @@ from pathlib import Path
 import pandas as pd
 
 from analytics.forecast.features import build_weekly_weather
+from analytics.forecast.prep import prepare_cases
 from analytics.forecast.forecast import run_pandas
 from analytics.optimise.demand import admission_rates, compute_demand, planning_totals
 
@@ -38,11 +39,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cases", required=True)
     ap.add_argument("--weather", default=str(ROOT / "data" / "reference" / "weather.csv"))
+    ap.add_argument("--trim-last-weeks", type=int, default=3,
+                    help="drop the newest k weeks (partial week + late reports)")
     a = ap.parse_args()
 
     cases = load_cases(a.cases)
     wx = build_weekly_weather(pd.read_csv(a.weather, dtype={"district_code": str}))
     wx = wx[["district_code", "week_start_date", "precip_sum_mm", "temp_mean_c"]]
+    cases = prepare_cases(cases, wx["week_start_date"].max(), a.trim_last_weeks)
     table = cases.merge(wx, on=["district_code", "week_start_date"], how="left")
 
     fc = run_pandas(table)
@@ -58,6 +62,7 @@ def main():
     fc.to_parquet(OUT / "gold_forecast.parquet", index=False)
     demand.to_parquet(OUT / "gold_demand.parquet", index=False)
     totals.to_parquet(OUT / "planning_totals.parquet", index=False)
+    totals.to_csv(OUT / "planning_totals.csv", index=False)  # run_allocation reads CSV
 
     print(f"forecast rows: {len(fc):,} ({len(live):,} live); "
           f"districts with demand: {totals['district_code'].nunique()}")

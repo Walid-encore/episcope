@@ -94,3 +94,24 @@ def test_sensitivity_and_markdown():
     assert row.change_pct == pytest.approx(25.0)
     md = assumptions_markdown()
     assert "placeholders" in md and str(ASSUMPTIONS["los_days"]["dengue"]) in md
+
+# --- AN-6 live-horizon guard: the by-hand fixtures use 1-2 horizons on purpose ---
+import pytest
+from analytics.optimise import demand as _demand_mod
+
+
+@pytest.fixture(autouse=True)
+def _relax_horizon_guard(request, monkeypatch):
+    if request.node.name == "test_guard_rejects_short_horizons":
+        return
+    real = _demand_mod._require_full_horizons
+    monkeypatch.setattr(_demand_mod, "_require_full_horizons",
+                        lambda f, max_horizon=4: real(f, 1))
+
+
+def test_guard_rejects_short_horizons():
+    fc = _fc([dict(district_code="01", disease="dengue", horizon_weeks=h, pred_mean=10.0, q90=12.0)
+              for h in (1, 2)])
+    with pytest.raises(ValueError, match="lack all 4 live horizons"):
+        compute_demand(fc, _rates())
+

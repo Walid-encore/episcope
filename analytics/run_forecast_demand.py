@@ -32,9 +32,10 @@ def main():
 
     cases = pd.read_csv(Path(a.gold) / "gold_weekly_cases.csv", dtype={"district_code": str})
     cases["week_start_date"] = pd.to_datetime(cases["week_start_date"])
-    cases = cases[cases["week_start_date"] >= pd.Timestamp("2021-01-04")]
-    last = cases["week_start_date"].max() - pd.Timedelta(weeks=a.trim_last_weeks)
-    cases = cases[cases["week_start_date"] <= last]
+    from analytics.forecast.prep import prepare_cases
+    _wend = pd.read_parquet(ROOT / "data" / "analytics" / "gold_weekly_weather.parquet",
+                            columns=["week_start_date"])["week_start_date"].max()
+    cases = prepare_cases(cases, _wend, a.trim_last_weeks)
     if a.limit:
         keep = sorted(cases["district_code"].unique())[: a.limit]
         cases = cases[cases["district_code"].isin(keep)]
