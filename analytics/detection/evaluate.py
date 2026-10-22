@@ -10,7 +10,9 @@ because district and year counts for the false-alert rate come from it. Columns 
 
 Definitions
   effective alert   alert_flag AND NOT reporting_artefact_flag
-  outbreak window   [start_date, end_date] from the truth file. An alert week overlaps the window
+  outbreak window   [start_date, end_date + window_grace_days] from the truth file. The grace period
+                    (default 0) lets report-week alerts that arrive after onset ends count as in-window,
+                    because cases are reported up to 21 days late (gold contract v0.3). An alert week overlaps the window
                     if week_start <= end_date and week_start + 6 days >= start_date.
                     A truth district_code of "ALL" matches every district (national surge).
   detected          at least one effective alert, same disease, in the window
@@ -49,22 +51,22 @@ def _prepare(df):
     return df
 
 
-def _in_window(df, outbreak):
+def _in_window(df, outbreak, grace_days=0):
     m = (df["disease"] == outbreak["disease"]) & \
-        (df["week_start_date"] <= outbreak["end_date"]) & \
+        (df["week_start_date"] <= outbreak["end_date"] + pd.Timedelta(days=grace_days)) & \
         (df["week_start_date"] + pd.Timedelta(days=6) >= outbreak["start_date"])
     if outbreak["district_code"] != "ALL":
         m &= df["district_code"] == outbreak["district_code"]
     return m
 
 
-def per_outbreak(alerts, truth):
+def per_outbreak(alerts, truth, window_grace_days=0):
     """One row per truth outbreak: detected (bool) and days_to_detect (NaN if missed)."""
     df = _prepare(alerts)
     eff = df[df["_effective"]]
     rows = []
     for _, o in truth.iterrows():
-        hit = eff[_in_window(eff, o)]
+        hit = eff[_in_window(eff, o, window_grace_days)]
         if hit.empty:
             rows.append(dict(outbreak_id=o["outbreak_id"], detected=False, days_to_detect=np.nan))
         else:
@@ -74,15 +76,15 @@ def per_outbreak(alerts, truth):
     return pd.DataFrame(rows)
 
 
-def evaluate(alerts, truth):
+def evaluate(alerts, truth, window_grace_days=0):
     """Return the AN-2 metrics as a dict."""
     df = _prepare(alerts)
     eff = df[df["_effective"]]
-    po = per_outbreak(alerts, truth)
+    po = per_outbreak(alerts, truth, window_grace_days)
 
     in_any = pd.Series(False, index=eff.index)
     for _, o in truth.iterrows():
-        in_any |= _in_window(eff, o)
+        in_any |= _in_window(eff, o, window_grace_days)
     false = eff[~in_any].sort_values(["district_code", "disease", "week_start_date"])
     episodes = 0
     if not false.empty:
@@ -103,13 +105,13 @@ def evaluate(alerts, truth):
     )
 
 
-def threshold_sweep(scored, truth, thresholds):
+def threshold_sweep(scored, truth, thresholds, window_grace_days=0):
     """Trade-off curve for conflict C1: rerun evaluate() with alert_flag = score >= t."""
     rows = []
     for t in thresholds:
         s = scored.copy()
         s["alert_flag"] = s["score"] >= t
-        m = evaluate(s, truth)
+        m = evaluate(s, truth, window_grace_days)
         m["threshold"] = float(t)
         rows.append(m)
     cols = ["threshold", "sensitivity", "false_alerts_per_district_year",

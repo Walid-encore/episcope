@@ -1,14 +1,18 @@
 """Shared pieces for the detectors (AN-1, AN-3).
 
-Input table = gold_weekly_cases columns (docs/gold_contract.md). Needed columns:
-    district_code, disease, epi_year, epi_week, week_start_date, cases,
-    reporting_facilities, expected_facilities
+Input table (gold contract v0.3): detection runs on REPORT weeks, built by gold_input.py from
+gold_weekly_reports + gold_reporting_status. Needed columns:
+    district_code, disease, epi_year, epi_week, week_start_date, cases (= reported_cases),
+    reporting_completeness   (share of usual volume that reported; null during warm-up)
+Legacy input (fixtures): reporting_facilities and expected_facilities are used when
+reporting_completeness is absent.
 Weeks must be consecutive per district x disease (gold marts should be dense; fill gaps with 0 upstream).
 
 Detectors NEVER read ground truth. Only evaluate.py may.
 
 Reporting-artefact rule (the silent-then-backfill facility):
-    under(t) = reporting_facilities(t) < under_ratio * expected_facilities
+    under(t) = reporting_completeness(t) < under_ratio        (null completeness = no information = not under)
+    legacy:  reporting_facilities(t) < under_ratio * expected_facilities
     reporting_artefact_flag(t) = under(t-1) AND NOT under(t)     # first full week after under-reporting
 Weeks that are under-reporting, or flagged as artefacts, are left OUT of every later baseline
 (treated as missing), so neither the silent weeks nor the back-fill spike distort future scores.
@@ -27,8 +31,11 @@ OUT_COLS = ["district_code", "disease", "epi_year", "epi_week", "week_start_date
 # ---------------------------------------------------------------- pandas versions
 def add_artefact_flag_pandas(df, under_ratio=0.85):
     df = df.sort_values(KEYS + [ORDER]).reset_index(drop=True).copy()
-    df["_under"] = df["reporting_facilities"] < under_ratio * df["expected_facilities"]
-    prev = df.groupby(KEYS)["_under"].shift(1).fillna(False).astype(bool)
+    if "reporting_completeness" in df.columns:
+        df["_under"] = df["reporting_completeness"].astype(float) < under_ratio  # NaN -> False
+    else:
+        df["_under"] = df["reporting_facilities"] < under_ratio * df["expected_facilities"]
+    prev = df.groupby(KEYS)["_under"].shift(1).eq(True)
     df["reporting_artefact_flag"] = prev & ~df["_under"]
     return df
 
@@ -70,7 +77,11 @@ def add_artefact_flag_spark(sdf, under_ratio=0.85):
     from pyspark.sql import Window
     from pyspark.sql import functions as F
     w = Window.partitionBy(*KEYS).orderBy(ORDER)
-    sdf = sdf.withColumn("_under", F.col("reporting_facilities") < F.lit(under_ratio) * F.col("expected_facilities"))
+    if "reporting_completeness" in sdf.columns:
+        under = F.coalesce(F.col("reporting_completeness") < F.lit(under_ratio), F.lit(False))
+    else:
+        under = F.col("reporting_facilities") < F.lit(under_ratio) * F.col("expected_facilities")
+    sdf = sdf.withColumn("_under", under)
     prev = F.coalesce(F.lag("_under", 1).over(w), F.lit(False))
     return sdf.withColumn("reporting_artefact_flag", prev & ~F.col("_under"))
 
