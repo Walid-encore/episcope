@@ -146,6 +146,7 @@ def load_quarantine(spark, path):
     if not m["reason_code"]:
         raise SilverSchemaError(f"{path}: no reason column. Columns found: {raw.columns}")
     df = _select(raw, m, QUAR)
+    df = df.withColumn("_qrow", F.monotonically_increasing_id())   # row id BEFORE the explode below
     # a quarantined row can carry several reasons (column `reason_codes`): one row per reason, so each rule is counted on its own
     kind = df.schema["reason_code"].dataType.simpleString()
     if kind.startswith("array"):

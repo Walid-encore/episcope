@@ -91,8 +91,13 @@ def ensure_columns(df: DataFrame, cols) -> DataFrame:
 
 
 def latest_per_key(df: DataFrame, key) -> DataFrame:
-    w = Window.partitionBy(*key).orderBy(c("bronze_load_ts").desc(), c("silver_load_ts").desc(),
-                                         c("bronze_source_file").desc())
+    order = [c("bronze_load_ts").desc(), c("silver_load_ts").desc(), c("bronze_source_file").desc()]
+    if "report_date" in df.columns:                         # report_date_first_order: contract says latest report_date wins
+        order = [c("report_date").desc_nulls_last()] + order
+    w = Window.partitionBy(*key).orderBy(*order)
+    if "first_report_date" in df.columns:
+        # keep the EARLIEST report date across all versions, then keep only the latest version
+        df = df.withColumn("first_report_date", F.min("first_report_date").over(Window.partitionBy(*key)))
     return df.withColumn("_rn", F.row_number().over(w)).filter(c("_rn") == 1).drop("_rn")
 
 
@@ -187,7 +192,8 @@ def final_encounters(v, ctx):
         c("encounter_id"),
         T.hash_id(c("patient_id"), ctx.salt).alias("patient_hash"),
         c("facility_id"), c("fac_district_code").alias("district_code"),
-        c("onset_d").alias("onset_date"), c("report_d").alias("report_date"), c("delay_days"),
+        c("onset_d").alias("onset_date"), c("report_d").alias("report_date"),
+        c("report_d").alias("first_report_date"), c("delay_days"),
         T.age_band(c("age_i")).alias("age_band"),
         F.when(c("sex_u").isin("M", "F"), c("sex_u")).otherwise("U").alias("sex"),
         c("icd_u").alias("icd10_code"), T.disease_from_icd(c("icd_u")).alias("disease"),

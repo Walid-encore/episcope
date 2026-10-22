@@ -124,7 +124,7 @@ def reporting_status(spark, enc, facilities, report_weeks) -> DataFrame:
         F.count(F.lit(1)).cast("int").alias("expected_facilities"),
         F.sum((F.col("n") > 0).cast("int")).cast("int").alias("reporting_facilities"),
         F.sum("usual").alias("usual_volume_total"),
-        (F.sum(F.when(F.col("n") > 0, F.col("usual")).otherwise(F.lit(0.0))) / F.sum("usual")).alias("reporting_completeness"))
+        (F.sum(F.when(F.col("usual") > 0, F.least(F.col("usual"), 2.0 * F.col("n"))).otherwise(F.lit(0.0))) / F.sum("usual")).alias("reporting_completeness"))
     return out.select("district_code", *wk, "expected_facilities", "reporting_facilities",
                       "usual_volume_total", "reporting_completeness")
 
@@ -220,3 +220,34 @@ def reconciliation_row(spark, rule_id, reason_code, checked, failed, run_ts) -> 
         [("ALL", rule_id, reason_code, int(checked), int(failed), 1.0 - failed / checked if checked else None, run_ts)],
         "batch_id string, rule_id string, reason_code string, rows_checked long, rows_failed long, "
         "pass_rate double, run_ts timestamp")
+
+
+def dq_report_from_silver(spark, sv: DataFrame, quarantine, qmeta) -> DataFrame:
+    """gold_dq_report from silver's dq_report: EVERY rule x batch, passing rules included (rows_failed = 0).
+    Keeps the contract columns (batch_id, rule_id, reason_code, rows_checked, rows_failed, pass_rate, run_ts)
+    and adds dataset, severity, description, rows_in, rows_quarantined. run_ts is silver's run time, so a
+    gold re-run reproduces the same rows."""
+    out = sv.select(
+        F.col("bronze_batch_id").alias("batch_id"),
+        F.concat_ws(":", F.lower(F.col("dataset")), F.col("rule_id")).alias("rule_id"),
+        F.col("rule_id").alias("reason_code"),
+        F.col("rows_checked").cast("long").alias("rows_checked"),
+        F.col("rows_failed").cast("long").alias("rows_failed"),
+        F.col("pass_rate").alias("pass_rate"),
+        F.col("run_ts").alias("run_ts"),
+        F.lower(F.col("dataset")).alias("dataset"),
+        F.col("severity").alias("severity"),
+        F.col("description").alias("description"),
+        F.col("rows_checked").cast("long").alias("rows_in"))
+    rq = F.lit(None).cast("long")
+    if qmeta["has_batch"]:
+        qc = (quarantine.groupBy(F.col("batch_id").alias("batch_id"), _feed("source_feed").alias("dataset"))
+              .agg((F.countDistinct("_qrow") if "_qrow" in quarantine.columns else F.count(F.lit(1))).cast("long").alias("_q")))
+        out = out.join(qc, ["batch_id", "dataset"], "left")
+        matched = qc.join(out.select("batch_id").distinct(), "batch_id").limit(1).count() > 0
+        rq = F.coalesce(F.col("_q"), F.lit(0)) if matched else rq      # no id overlap: say unknown, not 0
+    else:
+        out = out.withColumn("_q", F.lit(None).cast("long"))
+    return out.withColumn("rows_quarantined", rq.cast("long")).select(
+        "batch_id", "rule_id", "reason_code", "rows_checked", "rows_failed", "pass_rate", "run_ts",
+        "dataset", "severity", "description", "rows_in", "rows_quarantined")
