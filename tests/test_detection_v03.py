@@ -50,3 +50,52 @@ def test_loader_renames_and_joins_status(tmp_path):
     out = load_detector_input(tmp_path)
     assert out.loc[0, "district_code"] == "01" and out.loc[0, "cases"] == 7
     assert out.loc[0, "reporting_completeness"] == 0.9
+
+
+from analytics.detection.evaluate import artefact_check, per_outbreak_context, threshold_sweep
+
+
+def _scored(scores, cases, start="2022-01-03"):
+    n = len(scores)
+    return pd.DataFrame({"district_code": "01", "disease": "dengue",
+                         "week_start_date": pd.date_range(start, periods=n, freq="7D"),
+                         "score": scores, "cases": cases})
+
+
+def _truth():
+    return pd.DataFrame([dict(outbreak_id="OB1", district_code="01", disease="dengue",
+                              start_date=pd.Timestamp("2022-03-07"), end_date=pd.Timestamp("2022-03-20"))])
+
+
+def test_count_floor_removes_alerts_from_tiny_counts():
+    s = _scored([0, 0, 6, 0, 0, 0, 0, 0, 0, 0], [1, 1, 2, 1, 1, 1, 1, 1, 1, 1])
+    assert threshold_sweep(s, _truth(), [3.0])["false_alert_episodes"].iloc[0] == 1
+    swept = threshold_sweep(s, _truth(), [3.0], min_cases=5)
+    assert swept["false_alert_episodes"].iloc[0] == 0 and swept["min_cases"].iloc[0] == 5
+
+
+def test_floor_needs_cases_column():
+    import pytest
+    with pytest.raises(ValueError):
+        threshold_sweep(_scored([0, 0], [1, 1]).drop(columns="cases"), _truth(), [1.0], min_cases=3)
+
+
+def test_artefact_check_counts_raw_and_effective_alerts():
+    weeks = pd.date_range("2022-01-03", periods=6, freq="7D")
+    alerts = pd.DataFrame({"district_code": "01", "disease": "dengue", "week_start_date": weeks,
+                           "alert_flag": [False, False, False, False, True, False],
+                           "reporting_artefact_flag": [False, False, False, False, True, False]})
+    art = pd.DataFrame([dict(district_code="01", disease="dengue", silent_start=weeks[2],
+                             silent_end=weeks[3], backfill_week_start=weeks[4])])
+    out = artefact_check(alerts, art).iloc[0]
+    assert out["raw_alert_weeks"] == 1 and out["effective_alert_weeks"] == 0
+    assert bool(out["backfill_week_flagged"])
+
+
+def test_context_shows_alert_already_firing_before_outbreak():
+    weeks = pd.date_range("2022-01-03", periods=12, freq="7D")
+    flag = [w in (pd.Timestamp("2022-02-21"), pd.Timestamp("2022-02-28")) for w in weeks] 
+    alerts = pd.DataFrame({"district_code": "01", "disease": "dengue", "week_start_date": weeks,
+                           "alert_flag": flag})
+    out = per_outbreak_context(alerts, _truth()).iloc[0]
+    assert out["pre_alert_weeks"] == 2

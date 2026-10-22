@@ -105,15 +105,70 @@ def evaluate(alerts, truth, window_grace_days=0):
     )
 
 
-def threshold_sweep(scored, truth, thresholds, window_grace_days=0):
-    """Trade-off curve for conflict C1: rerun evaluate() with alert_flag = score >= t."""
+def threshold_sweep(scored, truth, thresholds, window_grace_days=0, min_cases=0):
+    """Trade-off curve for conflict C1: rerun evaluate() with alert_flag = score >= t.
+    min_cases > 0 adds a count floor: an alert also needs cases >= min_cases that week
+    (guards against tiny counts producing large z-scores). `scored` then needs a `cases` column."""
+    if min_cases and "cases" not in scored.columns:
+        raise ValueError("min_cases needs a 'cases' column in the scored table")
     rows = []
     for t in thresholds:
         s = scored.copy()
         s["alert_flag"] = s["score"] >= t
+        if min_cases:
+            s["alert_flag"] &= s["cases"] >= min_cases
         m = evaluate(s, truth, window_grace_days)
         m["threshold"] = float(t)
+        m["min_cases"] = int(min_cases)
         rows.append(m)
     cols = ["threshold", "sensitivity", "false_alerts_per_district_year",
-            "median_days_to_detect", "n_detected", "n_outbreaks", "false_alert_episodes"]
+            "median_days_to_detect", "n_detected", "n_outbreaks", "false_alert_episodes", "min_cases"]
     return pd.DataFrame(rows)[cols]
+
+
+def per_outbreak_context(alerts, truth, window_grace_days=0, pre_weeks=4):
+    """Diagnostic: per outbreak, was the detector already alerting just BEFORE the outbreak began?
+    pre_alert_weeks > 0 means a 'detection' may be a carry-over of an earlier alert, not a real catch."""
+    df = _prepare(alerts)
+    eff = df[df["_effective"]]
+    base = per_outbreak(alerts, truth, window_grace_days)
+    pre = []
+    for _, o in truth.iterrows():
+        m = (eff["disease"] == o["disease"]) & (eff["week_start_date"] < o["start_date"]) & \
+            (eff["week_start_date"] >= o["start_date"] - pd.Timedelta(weeks=pre_weeks))
+        if o["district_code"] != "ALL":
+            m &= eff["district_code"] == o["district_code"]
+        pre.append(int(m.sum()))
+    base["pre_alert_weeks"] = pre
+    return base
+
+
+def load_artefacts(path):
+    a = pd.read_csv(path, dtype={"district_code": str})
+    a["district_code"] = a["district_code"].str.zfill(2)
+    for c in ("silent_start", "silent_end", "backfill_week_start"):
+        a[c] = pd.to_datetime(a[c])
+    return a
+
+
+def artefact_check(alerts, artefacts, diseases=("dengue", "diarrhoeal")):
+    """AN-3: what the reporting-artefact rule does in the silent weeks and the back-fill week.
+    Per artefact (district x disease): raw alert weeks (what a naive detector would act on),
+    effective alert weeks (after suppression), and whether the rule flagged the back-fill week.
+    Artefacts never overlap an outbreak window, so every raw alert here is a false alert."""
+    df = _prepare(alerts)
+    if "reporting_artefact_flag" not in df.columns:
+        df["reporting_artefact_flag"] = False
+    df["_raw"] = df["alert_flag"].astype(bool)
+    rows = []
+    for _, a in artefacts[artefacts["disease"].isin(diseases)].iterrows():
+        m = (df["district_code"] == a["district_code"]) & (df["disease"] == a["disease"]) & \
+            (df["week_start_date"] >= a["silent_start"]) & (df["week_start_date"] <= a["backfill_week_start"])
+        w = df[m]
+        flagged = df[(df["district_code"] == a["district_code"]) & (df["disease"] == a["disease"]) &
+                     (df["week_start_date"] == a["backfill_week_start"])]["reporting_artefact_flag"]
+        rows.append(dict(district_code=a["district_code"], disease=a["disease"],
+                         backfill_week_start=a["backfill_week_start"].date(),
+                         raw_alert_weeks=int(w["_raw"].sum()), effective_alert_weeks=int(w["_effective"].sum()),
+                         backfill_week_flagged=bool(flagged.any())))
+    return pd.DataFrame(rows)

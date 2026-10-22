@@ -144,7 +144,10 @@ def build_gold(silver, facilities, districts):
     reported = (per > 0)
     d = fac.set_index("facility_id")["district_code"]
     u_tot = usual.groupby(d).sum(min_count=1)
-    u_rep = usual.where(reported).groupby(d).sum(min_count=1)
+    # volume-aware credit: a facility counts in proportion to min(1, n / (0.5 * usual)), so a facility
+    # that reports 1 case against a usual 13 no longer counts as "reporting" (contract change proposal)
+    credit = (per / (0.5 * usual.where(usual > 0))).clip(upper=1).fillna(0)
+    u_rep = (usual * credit).groupby(d).sum(min_count=1)
     comp = (u_rep.fillna(0) / u_tot).where(u_tot.notna())
     status = pd.DataFrame({"expected_facilities": d.value_counts(),
                            }).rename_axis("district_code").reset_index()
