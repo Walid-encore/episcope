@@ -6,3 +6,7 @@ __pycache__/
 spark-warehouse/
 test_parquet/
 *.pyc
+
+*.bak
+*.bak2
+data/gold/
