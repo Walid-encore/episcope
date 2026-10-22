@@ -7,9 +7,13 @@ partitions the work: same inputs -> identical files on any machine.
 from __future__ import annotations
 
 import datetime as dt
+from pathlib import Path
 
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
+
+from generator.bd_calendar import shift_table
+from pipeline.spark_session import get_spark      # noqa: F401  (re-exported for generate.py)
 
 MIN_ONSET = "2021-01-01"        # schema: onset_date not before this
 LETTER = {"dengue": "D", "diarrhoeal": "R", "ili": "L", "malaria": "M"}   # other -> "O"
@@ -41,38 +45,7 @@ RATE_DUP, RATE_ORPHAN, RATE_BAD_AGE = 0.02, 0.005, 0.01
 RATE_BAD_SEX, RATE_BAD_ICD, RATE_REPORT_BEFORE_ONSET, RATE_ONSET_TOO_EARLY = 0.005, 0.005, 0.002, 0.001
 
 
-def _holidays():
-    fixed = ["02-21", "03-26", "04-14", "05-01", "12-16", "12-25"]
-    eid = {2021: [("05-12", "05-16"), ("07-20", "07-24")], 2022: [("05-01", "05-05"), ("07-09", "07-13")],
-           2023: [("04-20", "04-24"), ("06-27", "07-01")], 2024: [("04-09", "04-13"), ("06-15", "06-19")],
-           2025: [("03-29", "04-02"), ("06-05", "06-09")], 2026: [("03-19", "03-23"), ("05-26", "05-30")]}
-    out = []
-    for y in range(2021, 2028):
-        out += [f"{y}-{d}" for d in fixed]
-        for a, b in eid.get(y, []):
-            d0, d1 = dt.date.fromisoformat(f"{y}-{a}"), dt.date.fromisoformat(f"{y}-{b}")
-            out += [(d0 + dt.timedelta(days=i)).isoformat() for i in range((d1 - d0).days + 1)]
-    return out
-
-
-HOLIDAYS = _holidays()
-
-
 # --------------------------------------------------------------------------- helpers
-def get_spark(driver_memory="3g", shuffle_partitions=64, tmp_dir=None):
-    b = (SparkSession.builder.appName("episcope-generator").master("local[*]")
-         .config("spark.driver.memory", driver_memory)
-         .config("spark.sql.shuffle.partitions", str(shuffle_partitions))
-         .config("spark.sql.session.timeZone", "UTC")
-         .config("spark.sql.sources.partitionOverwriteMode", "dynamic")
-         .config("spark.sql.adaptive.enabled", "true")
-         .config("spark.hadoop.mapreduce.fileoutputcommitter.marksuccessfuljobs", "false")
-         .config("spark.ui.showConsoleProgress", "false"))
-    if tmp_dir:
-        b = b.config("spark.local.dir", str(tmp_dir))
-    return b.getOrCreate()
-
-
 def u(key, salt, seed):
     """Deterministic uniform in (0,1) from a hash of key + seed + salt."""
     h = F.xxhash64(key, F.lit(f"{seed}:{salt}"))
@@ -97,11 +70,6 @@ def per_group(disease, table, builder):
         c = builder(v)
         e = F.when(disease == g, c) if e is None else e.when(disease == g, c)
     return e.otherwise(builder(table["other"]))
-
-
-def off_day(c):
-    """Bangladesh weekend (Fri/Sat) or a public holiday."""
-    return F.dayofweek(c).isin(6, 7) | F.date_format(c, "yyyy-MM-dd").isin(HOLIDAYS)
 
 
 # --------------------------------------------------------------------------- main build
@@ -135,21 +103,30 @@ def build_encounters(spark, work_dir, seed, end_date, artefacts, report_from=Non
     u1, u2 = u(F.col("key"), "d1", seed), u(F.col("key"), "d2", seed)
     z = F.sqrt(-2 * F.log(u1)) * F.cos(F.lit(2 * 3.141592653589793) * u2)
     df = df.withColumn("delay", F.least(F.lit(21), F.floor(F.exp(F.lit(0.55) + F.lit(0.95) * z)).cast("int")))
-    df = df.withColumn("rd", F.expr("date_add(onset, delay)"))
+    df = df.withColumn("rd0", F.expr("date_add(onset, delay)"))
     df = df.withColumn("shift", u(F.col("key"), "shift", seed) < 0.85)
-    for _ in range(4):
-        df = df.withColumn("rd", F.when(F.col("shift") & off_day(F.col("rd")), F.expr("date_add(rd, 1)"))
-                                  .otherwise(F.col("rd")))
+    # ~85% of reports that would land on a weekend/holiday move to the next working day. A small
+    # calendar table + broadcast join keeps the query plan tiny (nesting the rule blew it up).
+    last = dt.date.fromisoformat(end_date) + dt.timedelta(days=30)
+    cal = (spark.createDataFrame(shift_table(dt.date.fromisoformat(MIN_ONSET), last), "d string, s string")
+           .select(F.to_date("d").alias("rd0"), F.to_date("s").alias("rd_shift")))
+    df = df.join(F.broadcast(cal), "rd0", "left")
+    df = (df.withColumn("rd", F.when(F.col("shift"), F.coalesce(F.col("rd_shift"), F.col("rd0")))
+                               .otherwise(F.col("rd0")))
+            .drop("rd0", "rd_shift"))
     df = df.withColumn("rd", F.least(F.col("rd"), F.expr("date_add(onset, 21)")))
 
-    # ---- silent-then-backfill facilities: everything reported during the silence arrives in one day
+    # ---- silent-then-backfill facilities: everything reported during the silence arrives in one day.
+    # One CASE chain (facilities differ, so the rules never overlap) keeps the query plan small.
+    held = None
     for a in artefacts:
         in_window = ((F.col("facility_id") == a["facility_id"])
                      & (F.col("rd") >= F.lit(a["silent_start"]).cast("date"))
                      & (F.col("rd") <= F.lit(a["silent_end"]).cast("date")))
-        df = df.withColumn("rd", F.when(in_window, F.least(F.lit(a["backfill_date"]).cast("date"),
-                                                           F.expr("date_add(onset, 21)")))
-                                  .otherwise(F.col("rd")))
+        value = F.least(F.lit(a["backfill_date"]).cast("date"), F.expr("date_add(onset, 21)"))
+        held = F.when(in_window, value) if held is None else held.when(in_window, value)
+    if held is not None:
+        df = df.withColumn("rd", held.otherwise(F.col("rd")))
 
     df = df.filter(F.col("rd") <= end)                      # reports that have not arrived yet are unseen
 
@@ -198,19 +175,19 @@ def build_encounters(spark, work_dir, seed, end_date, artefacts, report_from=Non
     enc = df.select("encounter_id", "patient_id", "facility_id", "onset_date", "report_date", "age_years",
                     "sex", "icd10_code", "lab_confirmed", "admitted", "outcome", "onset", "delay")
 
-    # ---- duplicates: ~2% of encounters are re-submitted with the SAME encounter_id
+    # ---- duplicates: ~2% of encounters are re-submitted with the SAME encounter_id.
+    # A second copy is produced by exploding, so the query plan is not duplicated by a union.
     uid = lambda s: u(F.col("encounter_id"), s, seed)
-    dup = enc.filter(uid("dup") < RATE_DUP)
-    revised = uid("dupkind") < 0.5
+    enc = enc.withColumn("copy", F.explode(F.sequence(F.lit(1), F.when(uid("dup") < RATE_DUP, 2).otherwise(1))))
+    is_revised = (F.col("copy") == 2) & (uid("dupkind") < 0.5)       # copy 2 is a revision half the time
     gap = (F.lit(1) + F.floor(uid("dupgap") * 7)).cast("int")
-    dup = (dup.withColumn("gap", gap)
-              .withColumn("report_date", F.when(revised, F.least(
+    enc = (enc.withColumn("gap", gap)
+              .withColumn("report_date", F.when(is_revised, F.least(
                   F.expr("date_add(onset, 21)"), F.least(F.expr("date_add(report_date, gap)"), end)))
                   .otherwise(F.col("report_date")))
-              .withColumn("outcome", F.when(revised & (F.col("outcome") == "ongoing"), "recovered")
+              .withColumn("outcome", F.when(is_revised & (F.col("outcome") == "ongoing"), "recovered")
                                       .otherwise(F.col("outcome")))
-              .drop("gap"))
-    enc = enc.unionByName(dup)
+              .drop("gap", "copy"))
 
     # ---- orphan keys: ~0.5% of encounters point at a facility that does not exist
     orphan = F.concat(F.lit("FX"), F.lpad((F.floor(uid("orph2") * 90000) + 10000).cast("string"), 5, "0"))
@@ -235,6 +212,10 @@ def write_encounters(enc: DataFrame, out_dir):
     path = str(out_dir).replace("\\", "/")
     (enc.repartition(F.col("batch_week")).write.mode("overwrite").partitionBy("batch_week")
         .option("header", "true").csv(path))
+    for crc in Path(out_dir).rglob("*.crc"):          # Spark's hidden checksum files
+        crc.unlink()
+    for marker in Path(out_dir).rglob("_SUCCESS"):
+        marker.unlink()
 
 
 # --------------------------------------------------------------------------- verification
