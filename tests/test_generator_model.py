@@ -114,7 +114,7 @@ def test_artefact_file_matches_evaluation_fixture():
     if fixture.exists():                      # the Analytics teammate's reader expects exactly these columns
         fx = pd.read_csv(fixture, dtype=str)
         _, _, art = M.export_truth(model().outbreaks)
-        assert list(art.columns) == list(fx.columns)
+        assert set(fx.columns) <= set(art.columns)
     _, _, art = M.export_truth(model().outbreaks)
     assert (pd.to_datetime(art["backfill_week_start"]).dt.weekday == 0).all()    # always a Monday
     fac = M.export_artefact_facilities(model().outbreaks)

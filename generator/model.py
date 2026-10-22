@@ -211,23 +211,38 @@ def sample_counts(rng, mu):
 
 
 # --------------------------------------------------------------------------- artefacts
+ART_MIN_SHARE = 0.20      # the silent facility carries >= 20% of its district's encounters, so a volume-weighted
+                          # reporting completeness drops clearly below 0.85 (one silent facility of ~11 is only 91%)
+ART_MARGIN_DAYS = 21      # outbreaks keep >= 21 (+ the 14-day placement pad) days away from the affected period
+
+
 def plan_artefacts(cfg, rng, dist, fac, dates):
-    """Silent-then-backfill facilities. Records from the silent window all arrive on one day.
-    The silence is <= 17 days so that report_date - onset_date stays <= 21 (schema rule)."""
+    """Silent-then-backfill facilities, in WHOLE Monday-to-Sunday weeks.
+
+    The largest facility of the district goes silent for `weeks` whole weeks starting on a Monday (s) and ends
+    on a Sunday (e). Everything that would have been reported in that window arrives on ONE day, the Monday
+    after the last silent Sunday (backfill_date, e + 1). With <= 3 weeks the delay stays <= 21 days (schema rule).
+    Internal fields stay as before (silent_start = first silent day, silent_end = last silent day = Sunday), so
+    the Spark half is unaffected; export_truth() converts them to the Monday convention of the evaluation file."""
     T = len(dates)
     pop = dist.set_index("district_code")["population"]
     order = list(pop.sort_values(ascending=False).index)
-    specs = [("AR1", 17, order[10:28], (0.25, 0.50)), ("AR2", 12, order[28:48], (0.60, 0.90))]
+    specs = [("AR1", 2, order[10:28], (0.25, 0.50)), ("AR2", 1, order[28:48], (0.60, 0.90))]
+    top = fac.loc[fac.groupby("district_code")["weight"].idxmax()].set_index("district_code")
+    monday = np.asarray(dates.weekday) == 0
     out = []
-    for aid, length, pool, (a, b) in specs:
-        code = pool[int(rng.integers(len(pool)))]
-        hosp = fac[(fac.district_code == code) & (fac.facility_type == "hospital")]
-        fid = hosp.sort_values("weight", ascending=False).iloc[0]["facility_id"]
+    for aid, weeks, pool, (a, b) in specs:
+        strong = [c for c in pool if top.loc[c, "weight"] >= ART_MIN_SHARE]
+        cands = strong or [max(pool, key=lambda c: top.loc[c, "weight"])]   # fallback: biggest share in the pool
+        code = cands[int(rng.integers(len(cands)))]
+        fid = top.loc[code, "facility_id"]
         lo, hi = int(T * a), int(T * b)
-        s = int(rng.integers(lo, max(lo + 1, hi)))
-        e = s + length - 1
-        assert e + 1 < T
-        out.append(dict(artefact_id=aid, facility_id=fid, district_code=code, s=s, e=e,
+        starts = [i for i in range(lo, hi) if monday[i] and i + 7 * weeks + 7 < T]
+        assert starts, "no Monday available to start a silence; the date range is too short"
+        s = int(starts[int(rng.integers(len(starts)))])
+        e = s + 7 * weeks - 1                       # the Sunday that ends the last silent week
+        assert e + 1 < T and monday[s] and monday[e + 1]
+        out.append(dict(artefact_id=aid, facility_id=fid, district_code=code, s=s, e=e, weeks=weeks,
                         silent_start=dates[s].date().isoformat(),
                         silent_end=dates[e].date().isoformat(),
                         backfill_date=dates[e + 1].date().isoformat()))
@@ -259,9 +274,10 @@ def place_and_inject(cfg, rng, dist, mu, counts, dates, artefacts):
     assert hi - lo >= 150, "date range too short for outbreak placement"
 
     busy = {}
+    # affected period = silent weeks + the back-fill week (e + 1 .. e + 7); outbreaks stay clear of it by a wide margin
     for a in artefacts:
-        busy.setdefault((a["district_code"], "*"), []).append((a["s"] - 21, a["e"] + 21))
-    art_all = [(a["s"] - 21, a["e"] + 21) for a in artefacts]
+        busy.setdefault((a["district_code"], "*"), []).append((a["s"] - ART_MARGIN_DAYS, a["e"] + 7 + ART_MARGIN_DAYS))
+    art_all = [(a["s"] - ART_MARGIN_DAYS, a["e"] + 7 + ART_MARGIN_DAYS) for a in artefacts]
 
     def free(code, group, s, e, pad=14):
         keys = [(code, group), (code, "*")] + ([("*", "ili")] if group == "ili" else [])
@@ -367,7 +383,7 @@ TRUTH_COLS = ["outbreak_id", "district_code", "disease", "start_date", "end_date
               "peak_multiplier", "kind"]                      # exactly as docs/schema.md
 EXTRA_COLS = ["outbreak_id", "peak_date", "expected_extra_cases", "realised_extra_cases"]
 ARTEFACT_COLS = ["district_code", "disease", "silent_start", "silent_end",
-                 "backfill_week_start"]                      # matches tests/fixtures/artefact_fixture.csv
+                 "backfill_week_start", "facility_id"]       # first five = tests/fixtures/artefact_fixture.csv; facility_id is an extra column
 ARTEFACT_FAC_COLS = ["artefact_id", "facility_id", "district_code", "silent_start", "silent_end",
                      "backfill_date"]
 ARTEFACT_DISEASES = ["dengue", "diarrhoeal", "ili", "malaria"]   # a silent hospital silences all of them
@@ -380,7 +396,8 @@ def _monday(iso_date: str) -> str:
 
 def export_truth(gt: pd.DataFrame):
     """Split the internal ground truth into (schema file, extras, reporting artefacts).
-    Artefacts are one row per district x disease, in the evaluation fixture's format."""
+    Artefacts are one row per district x disease, in the evaluation fixture's format, in whole weeks:
+    silent_start / silent_end = Mondays of the first / last silent week, backfill_week_start = silent_end + 7 days."""
     ob = gt[gt["kind"] != "reporting_artefact"]
     main = pd.DataFrame({
         "outbreak_id": ob["outbreak_id"], "district_code": ob["district_code"],
@@ -388,10 +405,15 @@ def export_truth(gt: pd.DataFrame):
         "peak_multiplier": ob["peak_multiplier"].astype(float), "kind": ob["kind"].map(KIND_MAP)})[TRUTH_COLS]
     extras = ob[EXTRA_COLS].reset_index(drop=True)
     ar = gt[gt["kind"] == "reporting_artefact"]
-    rows = [dict(district_code=r["district_code"], disease=d, silent_start=r["start_date"],
-                 silent_end=r["end_date"], backfill_week_start=_monday(r["backfill_date"]))
+    rows = [dict(district_code=r["district_code"], disease=d, silent_start=_monday(r["start_date"]),
+                 silent_end=_monday(r["end_date"]), backfill_week_start=_monday(r["backfill_date"]),
+                 facility_id=r["facility_id"])
             for _, r in ar.iterrows() for d in ARTEFACT_DISEASES]
     art = pd.DataFrame(rows, columns=ARTEFACT_COLS)
+    day = pd.Timedelta(days=1)
+    for col in ("silent_start", "silent_end", "backfill_week_start"):
+        assert (pd.to_datetime(art[col]).dt.weekday == 0).all(), f"{col} must be a Monday"
+    assert ((pd.to_datetime(art["backfill_week_start"]) - pd.to_datetime(art["silent_end"])) == 7 * day).all()
     return main.reset_index(drop=True), extras, art
 
 
