@@ -157,12 +157,17 @@ def run(spark, a, enc_p, stock_p, q_p) -> int:
     dq = None
     if q_p:
         quarantine, qmeta = S.load_quarantine(spark, q_p)
-        dq = M.dq_report(spark, quarantine, qmeta, enc, emeta, stock, smeta, run_ts)
+        sv_dq = (find_silver_root(a.silver) or Path("data/silver")) / "dq_report"
+        if sv_dq.exists():
+            dq = M.dq_report_from_silver(spark, spark.read.parquet(posix(sv_dq)), quarantine, qmeta)
+        else:
+            print("NOTE: data/silver/dq_report not found; gold_dq_report holds failing rules only.")
+            dq = M.dq_report(spark, quarantine, qmeta, enc, emeta, stock, smeta, run_ts)
     else:
         print("NOTE: no quarantine table found; gold_dq_report will hold only the gold reconciliation rules.")
     for rule, checked, failed in checks:
         row = M.reconciliation_row(spark, rule, "GOLD_RECONCILIATION", checked, failed, run_ts)
-        dq = row if dq is None else dq.unionByName(row)
+        dq = row if dq is None else dq.unionByName(row, allowMissingColumns=True)
     write_table(dq, "gold_dq_report", gold)
     print(f"  {'gold_dq_report':<28}{spark.read.parquet(posix(gold / 'gold_dq_report')).count():>12,} rows")
 

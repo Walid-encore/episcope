@@ -10,3 +10,9 @@ test_parquet/
 *.bak
 *.bak2
 data/gold/
+
+# local scratch files
+*.bak_*
+patch_*.py
+diag_*.py
+reset_silver_encounters.py
