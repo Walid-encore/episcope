@@ -1,3 +1,3 @@
 detector,feasible,threshold,min_cases,sensitivity,false_per_district_year,median_days_to_detect,artefact_raw_alert_weeks,artefact_effective_alert_weeks,artefact_backfill_flagged,default_t,artefact_raw_at_default,artefact_effective_at_default
-ears_c2,True,6.5,15,0.6666666666666666,0.4107568838604144,6.0,0,0,4/4,3.0,0,0
-cusum,True,20.0,0,0.5714285714285714,0.39208611641221375,7.5,0,0,4/4,5.0,2,2
+ears_c2,True,7.5,0,0.6190476190476191,0.4636573916303163,5.0,0,0,4/4,3.0,0,0
+cusum,True,20.0,0,0.42857142857142855,0.38275073268811344,0.0,0,0,4/4,5.0,1,1

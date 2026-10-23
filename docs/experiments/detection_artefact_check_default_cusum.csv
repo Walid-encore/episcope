@@ -1,5 +1,5 @@
 district_code,disease,backfill_week_start,raw_alert_weeks,effective_alert_weeks,backfill_week_flagged
 30,dengue,2022-04-25,0,0,True
-30,diarrhoeal,2022-04-25,2,2,True
+30,diarrhoeal,2022-04-25,1,1,True
 36,dengue,2025-07-07,0,0,True
 36,diarrhoeal,2025-07-07,0,0,True
