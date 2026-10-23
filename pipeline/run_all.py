@@ -22,6 +22,7 @@ def _has_incoming():
 
 # (name, python args, skip_if) ; skip_if(args) -> reason string to skip, or None to run
 GOLD_CSV = "data/gold_csv"
+OPTIONAL = {"catalog"}  # a failure here is reported as a warning and the run continues
 STAGES = [
     ("generate", ["-m", "generator.generate"], lambda a: None if (a.regenerate or not _has_incoming())
      else "data/incoming already exists (use --regenerate to rebuild it)"),
@@ -29,6 +30,7 @@ STAGES = [
     ("silver",   ["-m", "pipeline.silver.build"], None),
     ("gold",     ["-m", "pipeline.gold.build"], None),
     ("contract", ["-m", "pipeline.quality.check_gold_contract"], None),
+    ("catalog",  ["-m", "pipeline.catalog"], None),
     ("export",   ["-m", "analytics.export_gold", "--gold", "data/gold", "--out", GOLD_CSV], None),
     ("alerts",   ["-m", "analytics.detection.make_alerts", "--gold", GOLD_CSV], None),
     ("demand",   ["-m", "analytics.optimise.run_demand", "--cases", GOLD_CSV + "/gold_weekly_cases.csv"], None),
@@ -79,8 +81,11 @@ def main():
         if name == "generate":
             args = args + ["--sf", str(a.sf)]
         res = run_stage(name, args, a.retries, a.wait)
+        if res["status"] != "ok" and name in OPTIONAL:
+            print(f"WARNING: optional stage {name} failed; continuing", flush=True)
+            res["status"] = "warned"
         results.append(res)
-        if res["status"] != "ok":
+        if res["status"] not in ("ok", "warned"):
             break
 
     log = Path("logs"); log.mkdir(exist_ok=True)
@@ -89,7 +94,7 @@ def main():
     print("\nSummary")
     for r in results:
         print(f"  {r['stage']:<10} {r['status']:<8} {r['seconds']:>8.1f}s  attempts={r['attempts']}")
-    sys.exit(0 if len(results) == len(todo) and all(r["status"] in ("ok", "skipped") for r in results) else 1)
+    sys.exit(0 if len(results) == len(todo) and all(r["status"] in ("ok", "skipped", "warned") for r in results) else 1)
 
 
 if __name__ == "__main__":

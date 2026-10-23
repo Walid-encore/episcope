@@ -41,9 +41,8 @@ def default_driver_memory(ram_bytes=None) -> str:
     gb = int(ram / 2 ** 30 * 0.4)
     return f"{min(8, max(2, gb))}g"
 
-
 def get_spark(driver_memory=None, shuffle_partitions=DEFAULT_SHUFFLE_PARTITIONS, tmp_dir=None,
-              app_name="episcope"):
+              app_name="episcope", catalog_dir=None):
     os.environ.setdefault("PYSPARK_PYTHON", sys.executable)
     from pyspark.sql import SparkSession
     b = (SparkSession.builder.appName(app_name).master("local[*]")
@@ -56,4 +55,15 @@ def get_spark(driver_memory=None, shuffle_partitions=DEFAULT_SHUFFLE_PARTITIONS,
          .config("spark.ui.showConsoleProgress", "false"))
     if tmp_dir:
         b = b.config("spark.local.dir", str(tmp_dir))
+    if catalog_dir:
+        # Persistent Spark SQL / Hive catalog (ING-3): metastore in an embedded Derby database under catalog_dir.
+        from pathlib import Path
+        cat = Path(catalog_dir).resolve()
+        cat.mkdir(parents=True, exist_ok=True)
+        b = (b.config("spark.sql.catalogImplementation", "hive")
+              .config("spark.sql.warehouse.dir", (cat / "warehouse").as_uri())
+              .config("spark.hadoop.javax.jdo.option.ConnectionURL",
+                      f"jdbc:derby:;databaseName={(cat / 'metastore_db').as_posix()};create=true")
+              .config("spark.driver.extraJavaOptions",
+                      f"-Dderby.stream.error.file={(cat / 'derby.log').as_posix()}"))
     return b.getOrCreate()
