@@ -58,6 +58,8 @@ def main():
     ap.add_argument("--budget-frac", type=float, default=0.5,
                     help="national budget as a share of the cost of all unmet need")
     ap.add_argument("--tolerance", type=float, default=0.05)
+    ap.add_argument("--rule", choices=["relative", "need"], default="relative",
+                    help="how efficiency loss is measured when recommending alpha (see allocate.recommend_alpha)")
     a = ap.parse_args()
 
     fac = pd.read_csv(a.facilities, dtype={"district_code": str, "facility_id": str})
@@ -70,7 +72,7 @@ def main():
     inp = build_input(demand, latest_stock_by_district(a.stock_dir, fac), dis)
 
     curve = efficiency_equity_curve(inp, pop, UNIT_COSTS)
-    alpha = recommend_alpha(curve, a.tolerance)
+    alpha = recommend_alpha(curve, a.tolerance, a.rule)
     need = float(((inp["demand"] - inp["stock"]).clip(lower=0) * inp["resource"].map(UNIT_COSTS)).sum())
     budget = a.budget_frac * need
     plan = solve_allocation(inp, pop, UNIT_COSTS, budget, alpha)
@@ -81,7 +83,7 @@ def main():
     plan.to_csv(out / "allocation_plan.csv", index=False)
     curve.to_csv(out / "efficiency_equity_curve.csv", index=False)
     summary = {"budget": budget, "budget_frac": a.budget_frac, "recommended_alpha": alpha,
-               "tolerance": a.tolerance, "optimised": metrics(plan, UNIT_COSTS),
+               "tolerance": a.tolerance, "rule": a.rule, "optimised": metrics(plan, UNIT_COSTS),
                "proportional_baseline": metrics(base, UNIT_COSTS)}
     (out / "recommendation.json").write_text(json.dumps(summary, indent=2))
     print(json.dumps(summary, indent=2))

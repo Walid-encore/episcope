@@ -90,7 +90,7 @@ def test_spark_matches_pandas(cases):
     from analytics.detection.cusum import cusum_spark
     from analytics.detection.ears_c2 import ears_c2_spark
     try:
-        spark = get_spark("detector-parity")
+        spark = get_spark()
     except Exception as e:  # pragma: no cover
         pytest.skip(f"Spark unavailable: {e}")
     cols = ["district_code", "disease", "epi_year", "epi_week", "week_start_date", "cases",

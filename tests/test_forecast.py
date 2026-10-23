@@ -109,7 +109,7 @@ def test_spark_matches_pandas():
     from pipeline.spark_session import get_spark
     from analytics.forecast.forecast import run_spark
     try:
-        spark = get_spark("forecast-parity")
+        spark = get_spark()
     except Exception as e:  # pragma: no cover
         pytest.skip(f"Spark unavailable: {e}")
     table = _series(weeks=200)
