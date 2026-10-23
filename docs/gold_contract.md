@@ -175,11 +175,11 @@ Added columns: dataset, severity (`error` or `warn`), description, rows_in, rows
 - `rule_id` is `<dataset>:<reason_code>` (for example `encounters:AGE_INVALID`). Every rule x batch appears, passing rules included (`rows_failed = 0`).
 - `run_ts` is silver's run time, so a gold re-run reproduces the same rows.
 - `rows_failed` counts the rows failing that one rule. A row can fail several rules, so the sum of `rows_failed` over a dataset can exceed `rows_quarantined`.
-- `rows_in` is the number of rows the dataset received in the batch. `rows_quarantined` is the number of distinct rows in the quarantine table for that batch and dataset, repeated on every rule row of the batch. It is null (unknown) when quarantine and silver share no batch id, never 0.
+- `rows_in` is the number of rows the dataset received in the batch. `rows_quarantined` is the number of rows in the quarantine table for that batch and dataset (exact repeats from the raw feed are not removed), repeated on every rule row of the batch. It is null (unknown) when quarantine and silver share no batch id, never 0.
 - Gold-level reconciliation checks (for example, lag counts add up to weekly cases, gold cases equal silver) appear as rows with `batch_id = ALL` and a null `dataset`.
 
 ### quarantine (silver, not gold)
-The full bronze columns of the rejected row, plus `patient_hash`, `reason_codes` (every rule the row failed), `bronze_batch_id` and `quarantined_at`. Rows that only trigger warn rules (`SEX_INVALID`) are not quarantined.
+The full bronze columns of the rejected row, plus `patient_hash`, `reason_codes` (every error rule the row failed, separated by `;`), `bronze_batch_id` and `quarantined_at`. Rows that only trigger warn rules (`SEX_INVALID`) are not quarantined.
 
 ### gold_lineage (gold row group x batch)
 gold_table, epi_year, epi_week, batch_id, source, loaded_at.
