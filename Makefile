@@ -1,14 +1,19 @@
-.PHONY: bronze
+.PHONY: all bronze silver gold test
+
+all:
+	python -m pipeline.run_all
+
 bronze:
-	python -m pipeline.bronze.ingest
+	python -m pipeline.run_all --only bronze
 
-.PHONY: silver
 silver:
-	python -m pipeline.silver.build
+	python -m pipeline.run_all --only silver
 
-.PHONY: gold
 gold:
-	python -m pipeline.gold.build
+	python -m pipeline.run_all --only gold
+
+test:
+	python -m pytest -q
 
 GOLD ?= data/standin_gold
 
