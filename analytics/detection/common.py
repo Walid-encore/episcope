@@ -13,12 +13,18 @@ Detectors NEVER read ground truth. Only evaluate.py may.
 Reporting-artefact rule (the silent-then-backfill facility):
     under(t) = reporting_completeness(t) < under_ratio        (null completeness = no information = not under)
     legacy:  reporting_facilities(t) < under_ratio * expected_facilities
-    reporting_artefact_flag(t) = under(t-1) AND NOT under(t)     # first full week after under-reporting
+    reporting_artefact_flag(t) = NOT under(t) AND under(t-k) for at least one k in 1..backfill_weeks
+        # the first `backfill_weeks` full weeks after under-reporting (default 2).
+        # A silent facility's missed reports do not always arrive in one week: in the real gold marts the
+        # back-fill is spread over two weeks (late_cases_ge8d is raised in both), so flagging only the
+        # first full week left the second back-fill week alerting (AN-3 finding).
 Weeks that are under-reporting, or flagged as artefacts, are left OUT of every later baseline
 (treated as missing), so neither the silent weeks nor the back-fill spike distort future scores.
 alert_flag stays RAW (before suppression) so the dashboard can show "suppressed: reporting artefact".
 evaluate.py counts only alert_flag AND NOT reporting_artefact_flag.
 """
+from functools import reduce
+
 import numpy as np
 import pandas as pd
 
@@ -26,17 +32,20 @@ KEYS = ["district_code", "disease"]
 ORDER = "week_start_date"
 OUT_COLS = ["district_code", "disease", "epi_year", "epi_week", "week_start_date", "detector",
             "score", "threshold", "alert_flag", "severity", "reporting_artefact_flag", "run_id"]
+BACKFILL_WEEKS = 2   # full weeks after an under-reporting stretch that are still treated as back-fill
 
 
 # ---------------------------------------------------------------- pandas versions
-def add_artefact_flag_pandas(df, under_ratio=0.85):
+def add_artefact_flag_pandas(df, under_ratio=0.85, backfill_weeks=BACKFILL_WEEKS):
     df = df.sort_values(KEYS + [ORDER]).reset_index(drop=True).copy()
     if "reporting_completeness" in df.columns:
         df["_under"] = df["reporting_completeness"].astype(float) < under_ratio  # NaN -> False
     else:
         df["_under"] = df["reporting_facilities"] < under_ratio * df["expected_facilities"]
-    prev = df.groupby(KEYS)["_under"].shift(1).eq(True)
-    df["reporting_artefact_flag"] = prev & ~df["_under"]
+    g = df.groupby(KEYS)["_under"]
+    recent = reduce(lambda a, b: a | b,
+                    [g.shift(k).eq(True) for k in range(1, max(int(backfill_weeks), 1) + 1)])
+    df["reporting_artefact_flag"] = recent & ~df["_under"]
     return df
 
 
@@ -73,7 +82,7 @@ def finalize_pandas(df, detector, threshold, run_id):
 
 
 # ---------------------------------------------------------------- Spark versions
-def add_artefact_flag_spark(sdf, under_ratio=0.85):
+def add_artefact_flag_spark(sdf, under_ratio=0.85, backfill_weeks=BACKFILL_WEEKS):
     from pyspark.sql import Window
     from pyspark.sql import functions as F
     w = Window.partitionBy(*KEYS).orderBy(ORDER)
@@ -82,8 +91,10 @@ def add_artefact_flag_spark(sdf, under_ratio=0.85):
     else:
         under = F.col("reporting_facilities") < F.lit(under_ratio) * F.col("expected_facilities")
     sdf = sdf.withColumn("_under", under)
-    prev = F.coalesce(F.lag("_under", 1).over(w), F.lit(False))
-    return sdf.withColumn("reporting_artefact_flag", prev & ~F.col("_under"))
+    recent = reduce(lambda a, b: a | b,
+                    [F.coalesce(F.lag("_under", k).over(w), F.lit(False))
+                     for k in range(1, max(int(backfill_weeks), 1) + 1)])
+    return sdf.withColumn("reporting_artefact_flag", recent & ~F.col("_under"))
 
 
 def baseline_z_spark(sdf, baseline=7, guard=2, min_n=5, min_std=1.0, mask=True):

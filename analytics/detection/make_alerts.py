@@ -18,8 +18,8 @@ Why the operating point is a constant and is not re-tuned here: choosing it need
 which only run_detection.py / evaluate.py may read, and the hidden 14-day drop has none.
 The operating point (THRESHOLD and MIN_CASES below) is the one run_detection.py selects for the SAME baseline
 rule: highest sensitivity with false alerts per district-year <= 0.5, summed over all four gold diseases and
-scored against all 34 injected outbreaks (22 detected, sensitivity 0.647, 0.479 false alerts per district-year,
-median 6.5 days). It was tuned in-sample on that small outbreak set, so it is a defensible choice, not a validated
+scored against all 34 injected outbreaks (21 detected, sensitivity 0.618, 0.492 false alerts per district-year,
+median 6.0 days). It was tuned in-sample on that small outbreak set, so it is a defensible choice, not a validated
 optimum. If you change the rule, the gold diseases or the point, re-run run_detection.py and update the constants
 below together; analytics/check_an2.py fails if the two disagree.
 
