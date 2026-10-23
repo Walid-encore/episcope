@@ -78,7 +78,7 @@ def main(argv=None):
     ap.add_argument("--encounters", default=None)
     ap.add_argument("--stock", default=None)
     ap.add_argument("--quarantine", default=None)
-    ap.add_argument("--diseases", nargs="+", default=["dengue", "diarrhoeal"])
+    ap.add_argument("--diseases", nargs="+", default=["dengue", "diarrhoeal", "ili", "malaria"])
     ap.add_argument("--check", action="store_true", help="show the silver mapping and stop")
     ap.add_argument("--driver-memory", default=None)
     a = ap.parse_args(argv)
