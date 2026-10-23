@@ -1,6 +1,7 @@
 import { loadAll, BASE } from "./data.js";
 import { createStore } from "./state.js";
 import { mountChoropleth } from "./views/choropleth.js";
+import { mountTimeSeries } from "./views/timeseries.js";
 
 const tip = document.getElementById("tooltip");
 const tooltip = {
@@ -13,30 +14,33 @@ const tooltip = {
 
 try {
   const data = await loadAll();
+  const n = data.weeks.length;
 
-  // Freshness badge (VIS-6): from freshness.json, never the browser clock.
+  // Freshness (VIS-6): from freshness.json, never the browser clock. Shown in header and under every panel.
   const fr = data.freshness;
-  document.getElementById("freshness").textContent =
-    `Data as of ${fr.data_as_of} · generated ${fr.generated_at} · ${fr.pipeline_version} (${BASE})`;
+  const freshText = `Data as of ${fr.data_as_of} · generated ${fr.generated_at} · ${fr.pipeline_version}`;
+  document.getElementById("freshness").textContent = `${freshText} (${BASE})`;
+  document.querySelectorAll(".panel").forEach(p =>
+    p.insertAdjacentHTML("beforeend", `<div class="fresh">${freshText}</div>`));
 
   const store = createStore({
     district: null,
     disease: data.meta.diseases[0],
-    week: data.weeks.length - 1,      // index into data.weeks; default = latest
+    week: n - 1,                 // index into data.weeks; default = latest
+    range: [0, n - 1],           // [first, last] week index, set by the brush
     metric: "incidence",
   });
 
-  // Controls
   const dSel = document.getElementById("disease");
   data.meta.diseases.forEach(d => dSel.add(new Option(d, d)));
   dSel.onchange = () => store.set({ disease: dSel.value });
 
   const wInp = document.getElementById("week");
-  wInp.max = data.weeks.length - 1; wInp.value = store.get().week;
   wInp.oninput = () => store.set({ week: +wInp.value });
 
   const sel = document.getElementById("selection");
   store.subscribe(s => {
+    wInp.min = s.range[0]; wInp.max = s.range[1]; wInp.value = s.week;   // slider follows the brush
     document.getElementById("weekLabel").textContent = `week of ${data.weeks[s.week]}`;
     const info = data.districtInfo.get(s.district);
     sel.innerHTML = info ? `Selected: <b>${info.district_name}</b> <button class="link" id="clr">clear</button>` : "";
@@ -44,6 +48,7 @@ try {
   });
 
   mountChoropleth(document.getElementById("choropleth"), data, store, tooltip);
+  mountTimeSeries(document.getElementById("timeseries"), data, store, tooltip);
   store.set({}); // initial notify so labels render
 } catch (e) {
   const err = document.getElementById("error");

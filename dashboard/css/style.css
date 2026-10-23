@@ -20,3 +20,14 @@ main { padding:0 20px 20px; }
   border-radius:4px; font-size:12px; opacity:0; transition:opacity .1s; max-width:240px; }
 #error { color:#b00020; padding:0 20px; }
 button.link { background:none; border:0; color:var(--accent); cursor:pointer; text-decoration:underline; }
+
+/* two-column layout (view 1 + view 2) */
+main { display:grid; grid-template-columns:minmax(0,5fr) minmax(0,6fr); gap:16px; align-items:start; }
+@media (max-width: 1000px) { main { grid-template-columns:1fr; } }
+.panel { max-width:none; }
+.fresh { color:var(--muted); font-size:11px; padding:4px 6px 0; }
+.ts text { fill:var(--fg); font-size:11px; }
+.ts .muted { fill:var(--muted); }
+.ts { color:var(--fg); }
+.ts .domain, .ts .tick line { stroke:var(--muted); }
+.ts .brush .selection { fill:var(--accent); fill-opacity:.25; stroke:var(--accent); }
