@@ -83,6 +83,7 @@ Properties: the sum of `cases_new` over lags equals `gold_weekly_cases.cases`. C
 |---|---|---|
 | district_code | string | key |
 | report_epi_year, report_epi_week | int | key |
+| report_week_start_date | date | Monday of the report week |
 | expected_facilities | int | facilities in the district (S5) |
 | reporting_facilities | int | facilities with >= 1 first-reported valid encounter in the week |
 | usual_volume_total | double | sum over all district facilities of their usual weekly volume (facilities still in warm-up are excluded) |
@@ -140,6 +141,7 @@ Check value: district 30, report week starting 2022-04-18 gives 0.7216 (8 of 11 
 | column | type | notes |
 |---|---|---|
 | district_code, epi_year, epi_week | key | last snapshot of the week per facility, summed per district |
+| week_start_date | date | Monday |
 | iv_saline_units, ns1_kits, ors_sachets | long | |
 | antimalarial_courses | long | carried through, unused for the two chosen diseases |
 | occupied_beds | long | |

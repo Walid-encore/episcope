@@ -28,6 +28,7 @@ STAGES = [
     ("bronze",   ["-m", "pipeline.bronze.ingest"], None),
     ("silver",   ["-m", "pipeline.silver.build"], None),
     ("gold",     ["-m", "pipeline.gold.build"], None),
+    ("contract", ["-m", "pipeline.quality.check_gold_contract"], None),
     ("export",   ["-m", "analytics.export_gold", "--gold", "data/gold", "--out", GOLD_CSV], None),
     ("alerts",   ["-m", "analytics.detection.make_alerts", "--gold", GOLD_CSV], None),
     ("demand",   ["-m", "analytics.optimise.run_demand", "--cases", GOLD_CSV + "/gold_weekly_cases.csv"], None),
