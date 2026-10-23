@@ -49,6 +49,9 @@ def seasonal_index(weekly, min_strength=0.5):
     return pd.Series(sm, index=range(1, WEEKS + 1)), strength
 
 
+ONSET_CAP = 0.25  # in season once 25% above the annual average (threshold never stricter than this)
+
+
 def season_window(idx, frac=0.5, min_amplitude=0.2):
     """Return dict(peak, onset, end, peak_index, clear) with ISO weeks 1..52 (circular)."""
     a = idx.to_numpy()
@@ -57,7 +60,7 @@ def season_window(idx, frac=0.5, min_amplitude=0.2):
     out = dict(peak_index=float(a[p]), peak=p + 1, onset=None, end=None, clear=amp >= min_amplitude)
     if not out["clear"]:
         return out
-    thr = 1.0 + frac * amp
+    thr = min(1.0 + frac * amp, 1.0 + ONSET_CAP)
     left = right = 0
     while left < WEEKS - 1 and a[(p - left - 1) % WEEKS] >= thr:
         left += 1
@@ -104,7 +107,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--gold", default=str(ROOT / "data" / "standin_gold"))
     ap.add_argument("--districts", default=str(ROOT / "data" / "reference" / "districts.csv"))
-    ap.add_argument("--year", type=int, default=2026)
+    ap.add_argument("--year", type=int, default=None,
+                    help="target year; default = latest ISO year in the data + 1")
     ap.add_argument("--frac", type=float, default=0.5)
     ap.add_argument("--min-amplitude", type=float, default=0.2)
     ap.add_argument("--min-strength", type=float, default=0.5)
@@ -114,8 +118,10 @@ def main():
     a = ap.parse_args()
     cases = pd.read_csv(Path(a.gold) / "gold_weekly_cases.csv", dtype={"district_code": str})
     cases["week_start_date"] = pd.to_datetime(cases["week_start_date"])
-    cases = cases[cases["week_start_date"] >= pd.Timestamp("2021-01-04")]
-    cases = cases[cases["week_start_date"] <= cases["week_start_date"].max() - pd.Timedelta(weeks=3)]
+    from analytics.forecast.prep import prepare_cases
+    cases = prepare_cases(cases)
+    if a.year is None:
+        a.year = int(cases["week_start_date"].dt.isocalendar().year.max()) + 1
     dis = pd.read_csv(a.districts, dtype={"district_code": str})
     cal, prof = build_calendar(cases, dis, a.year, a.frac, a.min_amplitude, a.lead_supplies, a.lead_campaign,
                              a.min_strength)

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EpiScope dashboard</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <h1>EpiScope</h1>
+    <span id="freshness" class="badge">loading…</span>
+  </header>
+  <section id="controls">
+    <label>Disease <select id="disease"></select></label>
+    <label>Week <input id="week" type="range" min="0" max="0" value="0"> <span id="weekLabel"></span></label>
+    <span id="selection"></span>
+  </section>
+  <main>
+    <div id="choropleth" class="panel"></div>
+  </main>
+  <div id="tooltip" role="tooltip"></div>
+  <p id="error" hidden></p>
+  <!-- Vendored D3 v7: download https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js to dashboard/vendor/d3.v7.min.js -->
+  <script src="vendor/d3.v7.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
