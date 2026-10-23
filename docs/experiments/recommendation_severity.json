@@ -1,0 +1,20 @@
+{
+  "budget": 161.9,
+  "budget_frac": 0.5,
+  "recommended_alpha": 0.0,
+  "tolerance": 0.05,
+  "rule": "relative",
+  "weights": "severity (from --cases)",
+  "optimised": {
+    "weighted_unmet": 150.4483496415995,
+    "coverage_total": 0.5,
+    "coverage_min_district": 0.0,
+    "coverage_gini": 0.53889600120491
+  },
+  "proportional_baseline": {
+    "weighted_unmet": 214.47514901522283,
+    "coverage_total": 0.3432152358749958,
+    "coverage_min_district": 0.061445444417589146,
+    "coverage_gini": 0.3409164318790701
+  }
+}

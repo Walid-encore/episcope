@@ -1,9 +1,8 @@
-"""C1 trade-off figure: sensitivity vs false alerts per district-year for each detector.
+"""C1 trade-off plot: sensitivity against false alerts per district-year, one curve per detector,
+with the chosen operating points marked. Reads the evaluation CSVs from docs/experiments.
 
-    python -m analytics.detection.plot_tradeoff [--min-cases 0] [--limit 0.5]
-
-Reads docs/experiments/detection_sweep_<detector>.csv and detection_operating_points.csv,
-writes docs/figures/c1_tradeoff.png. Needs matplotlib.
+    python -m analytics.detection.plot_tradeoff [--dir docs/experiments] [--min-cases 0]
+Writes c1_tradeoff.png next to the inputs.
 """
 import argparse
 from pathlib import Path
@@ -14,45 +13,44 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
-EXP = ROOT / "docs" / "experiments"
-DETECTORS = {"ears_c2": "EARS C2", "cusum": "CUSUM"}
-COLOURS = {"ears_c2": "#0072B2", "cusum": "#D55E00"}  # colour-blind-safe pair
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--min-cases", type=float, default=0)
-    ap.add_argument("--limit", type=float, default=0.5)
+    ap.add_argument("--dir", default=str(ROOT / "docs" / "experiments"))
+    ap.add_argument("--min-cases", type=int, default=0, help="count floor to plot (default 0)")
     a = ap.parse_args()
-
+    d = Path(a.dir)
     fig, ax = plt.subplots(figsize=(6.5, 4.5))
-    ops = pd.read_csv(EXP / "detection_operating_points.csv")
-    for det, label in DETECTORS.items():
-        s = pd.read_csv(EXP / f"detection_sweep_{det}.csv")
+    for det, style in (("ears_c2", "-o"), ("cusum", "-s")):
+        p = d / f"detection_sweep_{det}.csv"
+        if not p.exists():
+            continue
+        s = pd.read_csv(p)
         s = s[s["min_cases"] == a.min_cases].sort_values("false_alerts_per_district_year")
-        ax.plot(s["false_alerts_per_district_year"], s["sensitivity"], marker="o", ms=3.5,
-                lw=1.3, color=COLOURS[det], label=label)
-        op = ops[(ops["detector"] == det) & (ops["min_cases"] == a.min_cases)]
-        if not op.empty:
-            r = op.iloc[0]
-            ax.scatter([r["false_per_district_year"]], [r["sensitivity"]], s=110, marker="*",
-                       color=COLOURS[det], edgecolor="black", zorder=5,
-                       label=f"{label} chosen (threshold {r['threshold']:g})")
-    ax.axvline(a.limit, ls="--", color="grey", lw=1)
-    ax.text(a.limit, 0.02, f" limit {a.limit} false alerts / district-year", color="grey",
-            fontsize=8, va="bottom")
-    ax.set_xlabel("False alerts per district-year")
-    ax.set_ylabel("Sensitivity (share of 21 scored outbreaks detected)")
-    ax.set_title("Detection trade-off (conflict C1), count floor = %g" % a.min_cases)
-    ax.set_xlim(left=0)
+        ax.plot(s["false_alerts_per_district_year"], s["sensitivity"], style, ms=3, label=det)
+    op_path = d / "detection_operating_points.csv"
+    if op_path.exists():
+        op = pd.read_csv(op_path)
+        op = op[op["min_cases"] == a.min_cases]
+        ax.scatter(op["false_per_district_year"], op["sensitivity"], s=110, facecolors="none",
+                   edgecolors="black", linewidths=1.6, zorder=5, label="chosen operating point")
+        for r in op.itertuples():
+            ax.annotate(f"{r.detector} t={r.threshold:g}", (r.false_per_district_year, r.sensitivity),
+                        textcoords="offset points", xytext=(8, -12), fontsize=8)
+    ax.axvline(0.5, color="grey", ls="--", lw=0.8)
+    ax.text(0.52, 0.03, "0.5 false alerts / district-year", fontsize=7, color="grey")
+    ax.set_xscale("log")
+    ax.set_xlabel("False alerts per district-year (log scale)")
+    ax.set_ylabel("Sensitivity (share of scored outbreaks detected)")
     ax.set_ylim(0, 1.05)
+    ax.set_title("C1: detection sensitivity vs false alarms")
+    ax.legend(fontsize=8)
     ax.grid(alpha=0.3)
-    ax.legend(fontsize=8, loc="lower right")
-    out = ROOT / "docs" / "figures"
-    out.mkdir(parents=True, exist_ok=True)
+    out = d / "c1_tradeoff.png"
     fig.tight_layout()
-    fig.savefig(out / "c1_tradeoff.png", dpi=200)
-    print(f"wrote {out / 'c1_tradeoff.png'}")
+    fig.savefig(out, dpi=200)
+    print(f"wrote {out}")
 
 
 if __name__ == "__main__":

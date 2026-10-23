@@ -74,11 +74,15 @@ def main():
     for f in ("gold_forecast.parquet", "gold_demand.parquet", "planning_totals.parquet"):
         need(OUT / f)
 
+    step("forecast backtest summary (AN-5)", ["analytics.forecast.backtest_report", "--out", str(OUT)],
+         timings)
+    need(OUT / "forecast_backtest.csv")
+
     planning_csv = OUT / "planning_totals.csv"
     pd.read_parquet(OUT / "planning_totals.parquet").to_csv(planning_csv, index=False)
 
     args = ["analytics.optimise.run_allocation", "--demand", str(planning_csv),
-            "--out", str(OUT / "allocation")]
+            "--out", str(OUT / "allocation"), "--cases", str(cases)]
     if a.budget_frac is not None:
         args += ["--budget-frac", str(a.budget_frac)]
     step("allocation (AN-7, AN-8)", args, timings)
