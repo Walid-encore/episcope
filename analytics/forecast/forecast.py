@@ -70,7 +70,7 @@ def fit_nb(X, y, iters=30, alpha_rounds=3, ridge=1e-4):
 # ------------------------------------------------------------------ feature frame for one series
 def make_frame(series, extra=max(HORIZONS)):
     s = series.sort_values("week_start_date").copy()
-    s["week_start_date"] = pd.to_datetime(s["week_start_date"])
+    s["week_start_date"] = pd.to_datetime(s["week_start_date"]).dt.round("D")
     if (s["week_start_date"].diff().dropna() != pd.Timedelta(days=7)).any():
         raise ValueError("weeks are not contiguous for one district x disease; fill gaps upstream")
     n = len(s)
