@@ -35,7 +35,10 @@ def _docstring_node_ids(tree):
 
 
 def _violations(path):
-    tree = ast.parse(path.read_text(encoding="utf-8"))
+    # "utf-8-sig" strips a leading byte-order mark (added by Notepad / PowerShell
+    # Out-File on Windows) so that ast.parse does not fail on U+FEFF. Without a BOM
+    # it behaves exactly like "utf-8".
+    tree = ast.parse(path.read_text(encoding="utf-8-sig"))
     skip = _docstring_node_ids(tree)
     bad = []
     for n in ast.walk(tree):

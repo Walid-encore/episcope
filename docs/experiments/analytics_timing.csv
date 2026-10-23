@@ -20,3 +20,12 @@ run_at,stage,engine,seconds,rows,series
 2026-10-23T16:58:15,forecast,spark,56.44,33280,128
 2026-10-23T17:22:16,detection_ears_c2,spark,18.53,33536,128
 2026-10-23T17:23:18,forecast,spark,60.59,33280,128
+2026-10-23T18:01:13,detection_ears_c2,pandas,0.01,80,2
+2026-10-23T18:01:13,detection_ears_c2,pandas,0.01,80,2
+2026-10-23T18:01:13,detection_ears_c2,pandas,0.01,80,2
+2026-10-23T18:01:13,detection_ears_c2,pandas,0.01,80,2
+2026-10-23T18:01:36,detection_ears_c2,pandas,0.01,80,2
+2026-10-23T18:01:36,detection_ears_c2,pandas,0.01,80,2
+2026-10-23T18:01:36,detection_ears_c2,pandas,0.01,80,2
+2026-10-23T18:01:36,detection_ears_c2,pandas,0.01,80,2
+2026-10-23T18:14:18,detection_ears_c2,spark,18.4,33536,128

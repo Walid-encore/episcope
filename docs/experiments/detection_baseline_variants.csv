@@ -1,0 +1,6 @@
+variant,unscored_weeks,unscored_share,feasible,threshold,min_cases,sensitivity,n_detected,n_outbreaks,false_per_district_year,median_days_to_detect
+"current (7 wk, min 5)",1792,0.0553,True,6.5,15,0.619,13,21,0.411,5.0
+min_n 3,266,0.0082,True,6.5,15,0.619,13,21,0.42,5.0
+baseline 10 wk,366,0.0113,True,6.0,15,0.667,14,21,0.464,5.5
+baseline 12 wk,120,0.0037,True,7.0,10,0.667,14,21,0.429,5.5
+last 7 usable weeks,0,0.0,True,6.5,15,0.667,14,21,0.411,6.0
