@@ -16,3 +16,5 @@ data/gold/
 patch_*.py
 diag_*.py
 reset_silver_encounters.py
+
+gold_data.zip
