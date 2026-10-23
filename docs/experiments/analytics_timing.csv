@@ -7,3 +7,4 @@ run_at,stage,engine,seconds,rows,series
 2026-10-23T11:36:42,detection_ears_c2,spark,19.1,33536,128
 2026-10-23T12:34:14,detection_ears_c2,pandas,0.06,33536,128
 2026-10-23T12:34:33,detection_ears_c2,spark,18.3,33536,128
+2026-10-23T12:42:20,forecast,spark,57.58,33280,128
