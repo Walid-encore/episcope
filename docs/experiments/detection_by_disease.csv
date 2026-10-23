@@ -1,0 +1,9 @@
+detector,disease,threshold,min_cases,n_outbreaks,n_detected,sensitivity,false_per_district_year,median_days_to_detect
+ears_c2,dengue,7.0,15,11,7,0.6363636363636364,0.17737229075790623,7.0
+ears_c2,diarrhoeal,7.0,15,10,6,0.6,0.16181331788440567,5.0
+ears_c2,ili,7.0,15,8,5,0.625,0.07468306979280262,9.0
+ears_c2,malaria,7.0,15,5,4,0.8,0.0653476860687023,4.5
+cusum,dengue,24.0,0,11,4,0.36363636363636365,0.1649251124591058,0.0
+cusum,diarrhoeal,24.0,0,10,2,0.2,0.05290050776990186,3.5
+cusum,ili,24.0,0,8,3,0.375,0.11824819383860415,16.0
+cusum,malaria,24.0,0,5,1,0.2,0.043565124045801526,17.0

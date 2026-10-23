@@ -16,9 +16,12 @@ evidence are in docs/experiments/detection_baseline_variants.csv. Spark and pand
 
 Why the operating point is a constant and is not re-tuned here: choosing it needs ground truth,
 which only run_detection.py / evaluate.py may read, and the hidden 14-day drop has none.
-(THRESHOLD and MIN_CASES below) is the point run_detection.py selects for the SAME baseline rule: highest
-sensitivity with false alerts per district-year <= 0.5. If you change the rule or the point, re-run
-run_detection.py and update the constants below together.
+The operating point (THRESHOLD and MIN_CASES below) is the one run_detection.py selects for the SAME baseline
+rule: highest sensitivity with false alerts per district-year <= 0.5, summed over all four gold diseases and
+scored against all 34 injected outbreaks (22 detected, sensitivity 0.647, 0.479 false alerts per district-year,
+median 6.5 days). It was tuned in-sample on that small outbreak set, so it is a defensible choice, not a validated
+optimum. If you change the rule, the gold diseases or the point, re-run run_detection.py and update the constants
+below together; analytics/check_an2.py fails if the two disagree.
 
 Columns (contract): district_code, disease, epi_year, epi_week (REPORT week), detector, score,
 threshold, alert_flag, severity, reporting_artefact_flag, run_id.
@@ -47,8 +50,8 @@ from .variants import ears_c2_usable_pandas, ears_c2_usable_spark
 ROOT = Path(__file__).resolve().parents[2]
 DETECTOR = "ears_c2"            # name in gold_alerts (kept stable for the dashboard); the baseline rule is below
 BASELINE_RULE = "usable"        # "usable" = last BASELINE usable weeks; "calendar" = fixed window (see docstring)
-THRESHOLD = 7.5     # EARS C2 score.  RE-PICK from run_detection.py after switching to the "usable" rule
-MIN_CASES = 0       # count floor: no alert on fewer cases than this in the week.  RE-PICK together with THRESHOLD
+THRESHOLD = 7.0     # EARS C2 score; = run_detection.py operating point (usable baseline, 4 diseases, 34 outbreaks)
+MIN_CASES = 15      # count floor: no alert on fewer cases than this in the week; RE-PICK together with THRESHOLD
 BASELINE = 7        # weeks in the baseline window
 GUARD = 2           # guard band (weeks between the baseline and the scored week)
 MIN_N = 5           # usable baseline weeks needed to score a week
@@ -129,7 +132,7 @@ def build_alerts(data, threshold=THRESHOLD, min_cases=MIN_CASES, run_id="local",
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--gold", default=str(ROOT / "data" / "gold"))
+    ap.add_argument("--gold", default=str(ROOT / "data" / "standin_gold"))
     ap.add_argument("--out", default=str(ROOT / "data" / "analytics"))
     ap.add_argument("--threshold", type=float, default=THRESHOLD)
     ap.add_argument("--min-cases", type=int, default=MIN_CASES)

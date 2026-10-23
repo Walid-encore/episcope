@@ -70,3 +70,11 @@ run_at,stage,engine,seconds,rows,series
 2026-10-24T00:18:47,detection_ears_c2,spark,22.26,33536,128
 2026-10-24T00:18:49,detection_ears_c2,pandas,0.57,33536,128
 2026-10-24T00:54:27,detection_ears_c2,spark,18.73,33536,128
+2026-10-24T01:08:39,detection_ears_c2,spark,21.02,67072,256
+2026-10-24T01:18:47,detection_ears_c2,spark,20.3,67072,256
+2026-10-24T01:25:47,detection_ears_c2,spark,24.97,67072,256
+2026-10-24T01:27:52,detection_ears_c2,pandas,0.01,80,2
+2026-10-24T01:27:52,detection_ears_c2,pandas,0.01,80,2
+2026-10-24T01:27:52,detection_ears_c2,pandas,0.01,80,2
+2026-10-24T01:27:52,detection_ears_c2,pandas,0.0,80,2
+2026-10-24T01:27:52,detection_ears_c2,pandas,0.01,80,2
