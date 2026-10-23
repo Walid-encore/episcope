@@ -1,8 +1,11 @@
 """Detection evaluation on the report-week gold tables (AN-1, AN-2, AN-3, conflict C1).
 
     python -m analytics.detection.run_detection [--gold data/standin_gold] [--max-fa 0.5]
+                                                [--baseline usable|calendar]
 
-Runs EARS C2 and CUSUM once (scores do not depend on the threshold), sweeps the threshold,
+Runs EARS C2 and CUSUM once. EARS C2 uses the last-7-USABLE-weeks baseline by default (--baseline usable,
+the variant make_alerts.py ships); --baseline calendar runs the original calendar-window C2 as
+"ears_c2_calendar" for the before/after comparison in the report (separate output files). (scores do not depend on the threshold), sweeps the threshold,
 compares against ground truth (only this script and evaluate.py read data/truth), and shows
 the artefact rule's effect (robust vs naive = artefact suppression switched off).
 
@@ -27,12 +30,14 @@ from .ears_c2 import ears_c2_pandas
 from .evaluate import (artefact_check, evaluate, load_artefacts, load_truth, per_outbreak_context,
                        threshold_sweep)
 from .gold_input import load_detector_input
+from .variants import ears_c2_usable_pandas
 
 ROOT = Path(__file__).resolve().parents[2]
 SCORED = ["dengue", "diarrhoeal"]
 GRIDS = {"ears_c2": np.arange(1.0, 12.01, 0.5),
+         "ears_c2_calendar": np.arange(1.0, 12.01, 0.5),
          "cusum": np.concatenate([np.arange(1.0, 10.0, 0.5), np.arange(10.0, 30.01, 2.0)])}
-DEFAULT_T = {"ears_c2": 3.0, "cusum": 5.0}   # textbook / default thresholds, for the artefact check
+DEFAULT_T = {"ears_c2": 3.0, "ears_c2_calendar": 3.0, "cusum": 5.0}   # textbook / default thresholds, for the artefact check
 FLOORS = (0, 3, 5, 8, 10, 15)   # minimum cases in the week for an alert (count floor)
 
 
@@ -52,6 +57,8 @@ def main():
     ap.add_argument("--artefacts", default=str(ROOT / "data" / "truth" / "ground_truth_artefacts.csv"))
     ap.add_argument("--max-fa", type=float, default=0.5)
     ap.add_argument("--grace", type=int, default=14)
+    ap.add_argument("--baseline", choices=["usable", "calendar"], default="usable",
+                    help="EARS C2 baseline: last 7 usable weeks (default, what gold_alerts uses) or the calendar window")
     a = ap.parse_args()
 
     data = load_detector_input(a.gold)
@@ -59,7 +66,10 @@ def main():
     truth = truth[truth["disease"].isin(SCORED)].reset_index(drop=True)
     print(f"series: {data.groupby(['district_code', 'disease']).ngroups}, scored outbreaks: {len(truth)}")
 
-    runs = {"ears_c2": ears_c2_pandas, "cusum": cusum_pandas}
+    if a.baseline == "usable":
+        runs = {"ears_c2": ears_c2_usable_pandas, "cusum": cusum_pandas}
+    else:
+        runs = {"ears_c2_calendar": ears_c2_pandas, "cusum": cusum_pandas}
     exp = ROOT / "docs" / "experiments"
     exp.mkdir(parents=True, exist_ok=True)
     summary = []
@@ -102,7 +112,11 @@ def main():
     pd.set_option("display.width", 220)
     print(f"\nOperating points (feasible = false alerts per district-year <= {a.max_fa}):")
     print(s.round(3).to_string(index=False))
-    s.to_csv(exp / "detection_operating_points.csv", index=False)
+    suffix = "" if a.baseline == "usable" else "_calendar"
+    s.to_csv(exp / f"detection_operating_points{suffix}.csv", index=False)
+    e = s[s["detector"].str.startswith("ears_c2")].iloc[0]
+    print(f"\nPaste into make_alerts.py (EARS C2, {a.baseline} baseline, feasible={bool(e['feasible'])}):")
+    print(f"THRESHOLD = {float(e['threshold'])}\nMIN_CASES = {int(e['min_cases'])}")
 
 
 if __name__ == "__main__":

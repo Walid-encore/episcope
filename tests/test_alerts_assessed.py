@@ -1,5 +1,6 @@
 """gold_alerts keeps every week and says why a week was not assessed; the usable-baseline variant
-equals ears_c2 when nothing is masked and scores more weeks when reporting is patchy."""
+(the baseline make_alerts uses) equals the calendar ears_c2 when nothing is masked, scores more weeks when
+reporting is patchy, and leaves only warm-up weeks unscored (no 'baseline_masked' weeks)."""
 import numpy as np
 import pandas as pd
 
@@ -43,14 +44,28 @@ def test_warm_up_is_exactly_the_documented_length_when_nothing_is_masked():
     assert (s.loc[~s["assessed"], "not_assessed_reason"] == "warm_up").all()
 
 
-def test_masked_stretch_is_reported_not_dropped_and_never_alerts():
-    out = build_alerts(_data(), engine="pandas")
+def test_masked_stretch_is_reported_not_dropped_and_leaves_no_holes():
+    """Usable-weeks baseline: a silent stretch keeps its rows, and after warm-up every week is scored.
+    'baseline_masked' (the calendar baseline's blind weeks) must no longer occur."""
+    data = _data()
+    out = build_alerts(data, engine="pandas")
     s = out[out["district_code"] == "02"].sort_values("week_start_date").reset_index(drop=True)
-    masked = s[(s["not_assessed_reason"] == "baseline_masked")]
-    assert len(masked) > 0
-    assert (masked.index >= WARM_UP_WEEKS).all()
-    assert masked["score"].isna().all() and not masked["alert_flag"].any()
-    assert masked["severity"].isna().all()
+    assert len(s) == (data["district_code"] == "02").sum()              # nothing dropped
+    assert not (out["not_assessed_reason"] == "baseline_masked").any()
+    assert list(s.index[~s["assessed"]]) == list(range(WARM_UP_WEEKS))   # only warm-up is unscored
+    assert (s.loc[~s["assessed"], "not_assessed_reason"] == "warm_up").all()
+    assert s.loc[~s["assessed"], "severity"].isna().all()
+    assert not s.loc[~s["assessed"], "alert_flag"].any()
+
+
+def test_reporting_artefact_weeks_never_alert():
+    """With a threshold nobody can miss, every assessed week alerts EXCEPT those inside the artefact."""
+    out = build_alerts(_data(), threshold=-1e9, min_cases=0, engine="pandas")
+    s = out[out["district_code"] == "02"].sort_values("week_start_date").reset_index(drop=True)
+    assert s["reporting_artefact_flag"].any()                            # the silent stretch is flagged
+    assert not s.loc[s["reporting_artefact_flag"], "alert_flag"].any()   # ... and suppressed
+    assert (s["alert_flag"] == (s["assessed"] & ~s["reporting_artefact_flag"])).all()
+    assert s.loc[s["reporting_artefact_flag"], "severity"].isna().all()
 
 
 def test_usable_baseline_equals_ears_c2_when_nothing_is_masked():
