@@ -3,22 +3,22 @@
     python -m analytics.detection.make_alerts [--gold data/standin_gold] [--out data/analytics]
                                               [--engine spark|pandas]
 
-Runs EARS C2 (last-7-USABLE-weeks baseline, analytics/detection/variants.py) at a FIXED operating point
-and writes gold_alerts.parquet. ONE ROW PER district x disease x
+Runs EARS C2 at a FIXED operating point and writes gold_alerts.parquet. ONE ROW PER district x disease x
 report week, scored or not, so the dashboard can re-threshold (what-if panel) from the scores AND can tell
-"no alert" from "not assessed". A week gets no score only during series warm-up: the baseline is the last BASELINE
-USABLE weeks (weeks masked as under-reporting / back-fill are skipped, not counted), so a silent stretch no
-longer leaves unscored holes after warm-up. Unscored weeks are kept with score = null, assessed = False and
-a reason; they never raise an alert.
+"no alert" from "not assessed". A week gets no score when fewer than MIN_N usable baseline weeks exist
+(series warm-up, or the baseline weeks were masked as under-reporting / back-fill). Those weeks are kept
+with score = null, assessed = False and a reason; they never raise an alert.
 
-Detector label: stays "ears_c2" so the dashboard filter and the gold contract do not change. The baseline
-change (calendar window -> last 7 usable weeks) is documented in docs/detection_baseline.md.
+Baseline rule (BASELINE_RULE): "usable" (default) scores each week against the last BASELINE usable weeks
+(not under-reporting, not back-fill) at least GUARD + 1 weeks earlier, so a masked stretch no longer blinds the
+detector; "calendar" is the original fixed 7-week window, kept for comparison and for tests. The choice and its
+evidence are in docs/experiments/detection_baseline_variants.csv. Spark and pandas give the same scores.
 
 Why the operating point is a constant and is not re-tuned here: choosing it needs ground truth,
 which only run_detection.py / evaluate.py may read, and the hidden 14-day drop has none.
-(THRESHOLD / MIN_CASES below) is the point run_detection.py selects for the usable-weeks baseline: highest
-sensitivity with false alerts per district-year <= 0.5. run_detection.py prints a paste-ready line. If you
-change the detector or the gold data, re-run it and update the constants together.
+(THRESHOLD and MIN_CASES below) is the point run_detection.py selects for the SAME baseline rule: highest
+sensitivity with false alerts per district-year <= 0.5. If you change the rule or the point, re-run
+run_detection.py and update the constants below together.
 
 Columns (contract): district_code, disease, epi_year, epi_week (REPORT week), detector, score,
 threshold, alert_flag, severity, reporting_artefact_flag, run_id.
@@ -26,9 +26,9 @@ Extra columns (allowed, additive): week_start_date, min_cases, assessed, not_ass
   alert_flag               score >= threshold AND cases >= min_cases AND NOT inside a reporting artefact
   reporting_artefact_flag  the week is inside a silent-facility / back-fill artefact (alert suppressed)
   assessed                 False when score is null (the detector could not judge this week)
-  not_assessed_reason      "warm_up" (first GUARD + MIN_N weeks of a series); null if assessed.
-                           "baseline_masked" is kept as a defensive fallback; with the usable-weeks baseline
-                           it should not occur, and a non-zero count in the run summary is worth investigating
+  not_assessed_reason      "warm_up" (first GUARD + MIN_N weeks of a series) or "baseline_masked"
+                           (after warm-up, fewer than MIN_N usable weeks to build a baseline from: with the "usable"
+                           rule this needs a very long under-reporting stretch; with "calendar" it is common); null if assessed
   severity                 alert weeks only: score / threshold < SEV_MEDIUM -> low, < SEV_HIGH -> medium,
                            otherwise high (ASSUMPTION, document in docs/assumptions.md); null otherwise
 """
@@ -40,13 +40,15 @@ import pandas as pd
 
 from analytics.engine import on_spark, timed
 
-from .variants import ears_c2_usable_pandas, ears_c2_usable_spark   # baseline = last BASELINE usable weeks
+from .ears_c2 import ears_c2_pandas, ears_c2_spark
 from .gold_input import load_detector_input
+from .variants import ears_c2_usable_pandas, ears_c2_usable_spark
 
 ROOT = Path(__file__).resolve().parents[2]
-DETECTOR = "ears_c2"
-THRESHOLD = 6.5     # EARS C2 score
-MIN_CASES = 15       # count floor: no alert on fewer cases than this in the week
+DETECTOR = "ears_c2"            # name in gold_alerts (kept stable for the dashboard); the baseline rule is below
+BASELINE_RULE = "usable"        # "usable" = last BASELINE usable weeks; "calendar" = fixed window (see docstring)
+THRESHOLD = 7.5     # EARS C2 score.  RE-PICK from run_detection.py after switching to the "usable" rule
+MIN_CASES = 0       # count floor: no alert on fewer cases than this in the week.  RE-PICK together with THRESHOLD
 BASELINE = 7        # weeks in the baseline window
 GUARD = 2           # guard band (weeks between the baseline and the scored week)
 MIN_N = 5           # usable baseline weeks needed to score a week
@@ -71,15 +73,20 @@ def _norm_keys(df):
     return df
 
 
-def build_alerts(data, threshold=THRESHOLD, min_cases=MIN_CASES, run_id="local", engine="pandas"):
+def build_alerts(data, threshold=THRESHOLD, min_cases=MIN_CASES, run_id="local", engine="pandas",
+                 baseline_rule=BASELINE_RULE):
+    if baseline_rule not in ("usable", "calendar"):
+        raise ValueError("baseline_rule must be 'usable' or 'calendar'")
+    spark_fn, pandas_fn = ((ears_c2_usable_spark, ears_c2_usable_pandas) if baseline_rule == "usable"
+                           else (ears_c2_spark, ears_c2_pandas))
     series = data.groupby(["district_code", "disease"]).ngroups
-    with timed("detection_ears_c2_usable", engine, len(data), series):
+    with timed("detection_ears_c2", engine, len(data), series):
         if engine == "spark":
-            scored = on_spark(lambda s: ears_c2_usable_spark(s, threshold=threshold, run_id=run_id, baseline=BASELINE,
-                                                      guard=GUARD, min_n=MIN_N), data, "episcope-detection")
+            scored = on_spark(lambda s: spark_fn(s, threshold=threshold, run_id=run_id, baseline=BASELINE,
+                                                 guard=GUARD, min_n=MIN_N), data, "episcope-detection")
         else:
-            scored = ears_c2_usable_pandas(data, threshold=threshold, run_id=run_id, baseline=BASELINE,
-                                    guard=GUARD, min_n=MIN_N)
+            scored = pandas_fn(data, threshold=threshold, run_id=run_id, baseline=BASELINE,
+                               guard=GUARD, min_n=MIN_N)
     scored = _norm_keys(scored.drop(columns=["cases", "epi_year", "epi_week"], errors="ignore"))
     scored = scored.merge(_norm_keys(data)[KEYS + ["cases", "epi_year", "epi_week"]], on=KEYS, how="left")
     if scored["epi_year"].isna().any():
@@ -122,16 +129,17 @@ def build_alerts(data, threshold=THRESHOLD, min_cases=MIN_CASES, run_id="local",
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--gold", default=str(ROOT / "data" / "standin_gold"))
+    ap.add_argument("--gold", default=str(ROOT / "data" / "gold"))
     ap.add_argument("--out", default=str(ROOT / "data" / "analytics"))
     ap.add_argument("--threshold", type=float, default=THRESHOLD)
     ap.add_argument("--min-cases", type=int, default=MIN_CASES)
     ap.add_argument("--run-id", default="local")
     ap.add_argument("--engine", choices=["spark", "pandas"], default="spark")
+    ap.add_argument("--baseline-rule", choices=["usable", "calendar"], default=BASELINE_RULE)
     a = ap.parse_args()
 
     data = load_detector_input(a.gold)
-    alerts = build_alerts(data, a.threshold, a.min_cases, a.run_id, a.engine)
+    alerts = build_alerts(data, a.threshold, a.min_cases, a.run_id, a.engine, a.baseline_rule)
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     alerts.to_parquet(out / "gold_alerts.parquet", index=False)
@@ -143,13 +151,10 @@ def main():
     n_mask = int((not_ass["not_assessed_reason"] == "baseline_masked").sum())
     last = alerts["week_start_date"].max()
     now = alerts[(alerts["week_start_date"] == last) & alerts["alert_flag"]]
-    print(f"{DETECTOR} threshold {a.threshold} floor {a.min_cases}: {len(alerts):,} weeks, "
+    print(f"{DETECTOR} ({a.baseline_rule} baseline) threshold {a.threshold} floor {a.min_cases}: {len(alerts):,} weeks, "
           f"{int(alerts['assessed'].sum()):,} assessed, {len(not_ass):,} not assessed "
           f"({n_warm:,} warm-up, {n_mask:,} baseline masked), "
           f"{n_alert} alerts, {n_supp} above-threshold weeks suppressed as reporting artefacts")
-    if n_mask:
-        print(f"WARNING: {n_mask:,} weeks are 'baseline_masked'; the usable-weeks baseline should leave only warm-up "
-              f"weeks unscored. Check variants.py / the input.")
     print(f"latest report week {pd.Timestamp(last).date()}: {len(now)} active alerts")
     print(f"wrote {out / 'gold_alerts.parquet'}")
 

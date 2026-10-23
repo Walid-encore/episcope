@@ -14,9 +14,13 @@ Model (Section 6.3):
     s.t. u_dr >= demand_dr - stock_dr - x_dr,  u_dr >= 0
          sum c_r x_dr <= B
          x_dr >= alpha * p_d * sum_d' x_d'r      (equity floor)
-         sum_{d in k} sum_r v_r x_dr <= T_k      (transport)
+         sum_{d in k} sum_r v_r x_dr <= T_k      (transport; only when vol and caps are given)
+         x_dr >= min_cover * max(demand_dr - stock_dr, 0)   (coverage floor, extension; default 0 = off)
 alpha is the share of each resource guaranteed to districts by population, whatever
 their risk: alpha = 0 is pure efficiency, alpha -> 1 approaches population-proportional.
+min_cover is the share of its OWN need every district is guaranteed. It protects the worst-covered
+district directly, which the population-share floor alpha does not. It is capped so the floor never
+uses more than half the budget, leaving room for the optimiser to prioritise.
 """
 import numpy as np
 import pandas as pd
@@ -39,8 +43,9 @@ def _wts(df, weights):
 
 
 def solve_allocation(demand, pop, costs, budget, alpha=0.0, weights=None,
-                     vol=None, caps=None):
-    """Return demand frame with columns x (allocation) and unmet."""
+                     vol=None, caps=None, min_cover=0.0):
+    """Return demand frame with columns x (allocation) and unmet.
+    out.attrs["min_cover_used"] is the coverage floor actually applied (after the half-budget cap)."""
     df = _check(demand)
     w = _wts(df, weights)
     p = (pop / pop.loc[df["district_code"].unique()].sum())
@@ -56,6 +61,14 @@ def solve_allocation(demand, pop, costs, budget, alpha=0.0, weights=None,
         tot = pulp.lpSum(x[(d, rr)] for d, rr in keys if rr == r)
         for d in df.loc[df["resource"] == r, "district_code"]:
             prob += x[(d, r)] >= alpha * float(p[d]) * tot
+    need_pos = np.maximum((df["demand"] - df["stock"]).to_numpy(), 0.0)
+    need_cost = float((need_pos * df["resource"].map(costs).to_numpy()).sum())
+    cover = 0.0
+    if min_cover > 0 and need_cost > 0:
+        cover = min(float(min_cover), 0.5 * budget / need_cost)
+        for k, nd in zip(keys, need_pos):
+            if nd > 0:
+                prob += x[k] >= cover * float(nd)
     if vol and caps:
         for k, T in caps.items():
             prob += pulp.lpSum(vol[r] * x[(d, r)]
@@ -67,6 +80,7 @@ def solve_allocation(demand, pop, costs, budget, alpha=0.0, weights=None,
     out = df.copy()
     out["x"] = [x[k].value() or 0.0 for k in keys]
     out["unmet"] = np.maximum(out["demand"] - out["stock"] - out["x"], 0.0)
+    out.attrs["min_cover_used"] = cover
     return out
 
 
@@ -105,8 +119,10 @@ def metrics(res, costs, weights=None):
 
 
 def efficiency_equity_curve(demand, pop, costs, budget_fracs=(0.1, 0.2, 0.4, 0.6, 0.8, 1.0),
-                            alphas=(0.0, 0.2, 0.4, 0.6, 0.8), weights=None, vol=None, caps=None):
-    """AN-8: one row per (budget level, alpha) plus the proportional baseline."""
+                            alphas=(0.0, 0.2, 0.4, 0.6, 0.8), weights=None, vol=None, caps=None,
+                            min_cover=0.0):
+    """AN-8: one row per (budget level, alpha) plus the proportional baseline.
+    min_cover applies the same coverage floor to every optimised row (default 0 = off)."""
     df = _check(demand)
     full = float((np.maximum(df["demand"] - df["stock"], 0) * df["resource"].map(costs)).sum())
     rows = []
@@ -115,7 +131,7 @@ def efficiency_equity_curve(demand, pop, costs, budget_fracs=(0.1, 0.2, 0.4, 0.6
         base = metrics(proportional_baseline(df, pop, costs, B), costs, weights)
         rows.append({"budget_frac": f, "budget": B, "policy": "proportional", "alpha": np.nan, **base})
         for a in alphas:
-            res = solve_allocation(df, pop, costs, B, a, weights, vol, caps)
+            res = solve_allocation(df, pop, costs, B, a, weights, vol, caps, min_cover)
             rows.append({"budget_frac": f, "budget": B, "policy": "optimised", "alpha": a,
                          **metrics(res, costs, weights)})
     return pd.DataFrame(rows)

@@ -46,7 +46,7 @@ def unscored_after_warm_up(scored):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--gold", default=str(ROOT / "data" / "standin_gold"))
+    ap.add_argument("--gold", default=str(ROOT / "data" / "gold"))
     ap.add_argument("--truth", default=str(ROOT / "data" / "truth" / "ground_truth_outbreaks.csv"))
     ap.add_argument("--max-fa", type=float, default=0.5)
     ap.add_argument("--grace", type=int, default=14)
