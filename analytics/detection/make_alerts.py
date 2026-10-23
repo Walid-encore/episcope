@@ -8,7 +8,7 @@ district x disease x report week, so the dashboard can re-threshold (what-if pan
 
 Why the operating point is a constant and is not re-tuned here: choosing it needs ground truth,
 which only run_detection.py / evaluate.py may read, and the hidden 14-day drop has none.
-(threshold 6.5, count floor 15) is the point run_detection.py selects: highest sensitivity with
+(threshold 7.5, count floor 0 on the current gold) is the point run_detection.py selects: highest sensitivity with
 false alerts per district-year <= 0.5. If you change it, re-run run_detection.py and update the
 constants below together.
 
@@ -33,13 +33,25 @@ from .gold_input import load_detector_input
 
 ROOT = Path(__file__).resolve().parents[2]
 DETECTOR = "ears_c2"
-THRESHOLD = 6.5     # EARS C2 score
-MIN_CASES = 15      # count floor: no alert on fewer cases than this in the week
+THRESHOLD = 7.5     # EARS C2 score
+MIN_CASES = 0       # count floor: no alert on fewer cases than this in the week
 SEV_MEDIUM = 1.5    # score / threshold ratios for the severity label
 SEV_HIGH = 2.0
 KEYS = ["district_code", "disease", "week_start_date"]
 COLUMNS = ["district_code", "disease", "epi_year", "epi_week", "detector", "score", "threshold",
            "alert_flag", "severity", "reporting_artefact_flag", "run_id", "week_start_date", "min_cases"]
+
+
+def _norm_keys(df):
+    """Same key types whichever engine produced the frame (Spark can return dates as objects)."""
+    df = df.copy()
+    df["district_code"] = df["district_code"].astype(str).str.zfill(2)
+    wk = pd.to_datetime(df["week_start_date"])
+    if getattr(wk.dt, "tz", None) is not None:
+        wk = wk.dt.tz_localize(None)
+    # round, not normalize: the Spark round trip shifts midnight by the local UTC offset (Mon 00:00 -> Sun 18:00)
+    df["week_start_date"] = wk.dt.round("D").astype("datetime64[ns]")
+    return df
 
 
 def build_alerts(data, threshold=THRESHOLD, min_cases=MIN_CASES, run_id="local", engine="pandas"):
@@ -50,8 +62,11 @@ def build_alerts(data, threshold=THRESHOLD, min_cases=MIN_CASES, run_id="local",
                               "episcope-detection")
         else:
             scored = ears_c2_pandas(data, threshold=threshold, run_id=run_id)
-    scored = (scored.drop(columns=["cases", "epi_year", "epi_week"], errors="ignore")
-                    .merge(data[KEYS + ["cases", "epi_year", "epi_week"]], on=KEYS, how="left"))
+    scored = _norm_keys(scored.drop(columns=["cases", "epi_year", "epi_week"], errors="ignore"))
+    scored = scored.merge(_norm_keys(data)[KEYS + ["cases", "epi_year", "epi_week"]], on=KEYS, how="left")
+    if scored["epi_year"].isna().any():
+        raise SystemExit(f"{int(scored['epi_year'].isna().sum())} scored rows did not match the input weeks "
+                         f"(engine={engine}); key dtypes: {dict(scored[KEYS].dtypes.astype(str))}")
     scored = scored[scored["score"].notna()].copy()
     if "reporting_artefact_flag" in scored.columns:
         art = scored["reporting_artefact_flag"].fillna(False).astype(bool)

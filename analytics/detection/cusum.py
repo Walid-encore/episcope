@@ -8,7 +8,9 @@ k  = allowance (default 1.0). The baseline lags a rising season, so z is positiv
      Defaults come from the 4-outbreak fixture only: RE-TUNE k and h on the real generated data.
 z_cap stops one huge value (e.g. a back-fill spike) from dominating the sum.
 S is NOT reset after an alert, so the score stays continuous for the threshold sweep.
-Weeks without a baseline have z = NaN and contribute 0.
+Weeks without a baseline have z = NaN and contribute 0. So does an artefact-flagged (back-fill) week when
+mask=True: the spike is excluded from the sum, not only from the baselines. Under-reporting weeks are NOT
+masked: their low counts are real evidence of nothing unusual and masking them only raised S.
 CUSUM accumulates small persistent rises, so it should catch slow-growth outbreaks that EARS C2 misses.
 """
 import numpy as np
@@ -30,6 +32,8 @@ def cusum_pandas(df, threshold=5.0, k=1.0, z_cap=6.0, baseline=7, guard=2, min_n
                  min_std=1.0, under_ratio=0.85, mask=True, run_id="local"):
     d = add_artefact_flag_pandas(df, under_ratio)
     d = baseline_z_pandas(d, baseline, guard, min_n, min_std, mask)
+    if mask:
+        d.loc[d["reporting_artefact_flag"], "z"] = np.nan
     d["score"] = d.groupby(KEYS)["z"].transform(
         lambda z: pd_series_cusum(z, k, z_cap))
     return finalize_pandas(d, "cusum", threshold, run_id)
@@ -46,6 +50,9 @@ def cusum_spark(sdf, threshold=5.0, k=1.0, z_cap=6.0, baseline=7, guard=2, min_n
     from pyspark.sql.types import DoubleType, StructField, StructType
     d = add_artefact_flag_spark(sdf, under_ratio)
     d = baseline_z_spark(d, baseline, guard, min_n, min_std, mask)
+    if mask:
+        from pyspark.sql import functions as F
+        d = d.withColumn("z", F.when(~F.col("reporting_artefact_flag"), F.col("z")))
     schema = StructType(d.schema.fields + [StructField("score", DoubleType(), True)])
 
     def run(pdf):

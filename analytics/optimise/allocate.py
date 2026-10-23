@@ -121,14 +121,25 @@ def efficiency_equity_curve(demand, pop, costs, budget_fracs=(0.1, 0.2, 0.4, 0.6
     return pd.DataFrame(rows)
 
 
-def recommend_alpha(curve, tolerance=0.05):
-    """Largest alpha whose weighted unmet is within `tolerance` of alpha=0 at every
-    budget below full cover. Higher alpha buys equity at a stated efficiency cost."""
+def recommend_alpha(curve, tolerance=0.05, basis="relative"):
+    """Largest alpha whose efficiency loss, versus alpha = 0, stays within `tolerance` at every
+    budget below full cover. Higher alpha buys equity at a stated efficiency cost.
+    basis="relative": loss as a share of the alpha = 0 weighted unmet (very strict where unmet is small,
+                      i.e. at high budgets).
+    basis="need":     loss as a share of the TOTAL weighted need at that budget level (budget / budget_frac):
+                      the extra need left uncovered, as a fraction of everything that needed covering."""
+    if basis not in ("relative", "need"):
+        raise ValueError("basis must be 'relative' or 'need'")
     opt = curve[(curve["policy"] == "optimised") & (curve["budget_frac"] < 1.0)]
+    ref = opt[opt["alpha"] == 0.0].set_index("budget_frac")
     ok = []
     for a, g in opt.groupby("alpha"):
-        ref = opt[opt["alpha"] == 0.0].set_index("budget_frac")["weighted_unmet"]
-        cur = g.set_index("budget_frac")["weighted_unmet"]
-        if ((cur <= ref * (1 + tolerance) + 1e-9)).all():
+        cur = g.set_index("budget_frac")
+        loss = cur["weighted_unmet"] - ref["weighted_unmet"]
+        if basis == "need":
+            limit = tolerance * (cur["budget"] / cur.index.to_series())
+        else:
+            limit = tolerance * ref["weighted_unmet"]
+        if (loss <= limit + 1e-9).all():
             ok.append(a)
     return max(ok) if ok else 0.0

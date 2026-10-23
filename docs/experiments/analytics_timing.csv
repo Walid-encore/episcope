@@ -1,0 +1,9 @@
+run_at,stage,engine,seconds,rows,series
+2026-10-23T11:03:11,forecast,pandas,35.08,33280,128
+2026-10-23T11:03:14,detection_ears_c2,pandas,0.06,33536,128
+2026-10-23T11:23:25,detection_ears_c2,pandas,0.06,33536,128
+2026-10-23T11:24:04,forecast,pandas,38.83,33280,128
+2026-10-23T11:25:08,detection_ears_c2,spark,30.05,33536,128
+2026-10-23T11:36:42,detection_ears_c2,spark,19.1,33536,128
+2026-10-23T12:34:14,detection_ears_c2,pandas,0.06,33536,128
+2026-10-23T12:34:33,detection_ears_c2,spark,18.3,33536,128
