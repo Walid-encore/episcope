@@ -10,7 +10,7 @@ Document the chosen k in docs/assumptions.md.
 import pandas as pd
 
 
-def prepare_cases(cases, weather_end=None, trim_last_weeks=3, verbose=True):
+def prepare_cases(cases, weather_end=None, trim_last_weeks=1, verbose=True):
     c = cases.copy()
     c["week_start_date"] = pd.to_datetime(c["week_start_date"])
     c = c[c["week_start_date"] > c["week_start_date"].min()]
