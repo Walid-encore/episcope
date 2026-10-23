@@ -18,3 +18,6 @@ diag_*.py
 reset_silver_encounters.py
 
 gold_data.zip
+
+logs/
+data_drop/
