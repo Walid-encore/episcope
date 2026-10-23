@@ -13,6 +13,16 @@ Outputs (in --out): allocation_plan.csv, efficiency_equity_curve.csv, recommenda
 Planning uses demand_q90 (upper prediction quantile, Section 6.3). Beds are not a shippable
 stock, so only the three consumables are allocated. UNIT_COSTS are relative cost units and
 are ASSUMPTIONS: document them in docs/assumptions.md and test sensitivity to them.
+
+Stock input handling (DQ note for the report)
+  The stock feed is read from the raw incoming snapshots, not from a silver table, and this
+  script applies its own referential-integrity filter: snapshot rows whose facility_id is not
+  in the registry (the ~0.5% injected orphans) are dropped BEFORE the latest snapshot per
+  facility is chosen. The filter is reported per ROW, not per distinct id (orphan ids are
+  mostly unique, so a distinct-id count looks far larger than the real data loss). The run
+  stops if the orphan row share exceeds --max-orphan-share, or if a registry facility has no
+  stock at all, because either would point to an ID mismatch rather than injected noise.
+  The stock quality numbers are written to recommendation.json under "stock_input".
 """
 import argparse
 import io
@@ -30,7 +40,10 @@ STOCK_COLS = {"iv_saline_units": "iv_saline_units", "ns1_kits": "ns1_kits",
 UNIT_COSTS = {"iv_saline_units": 1.0, "ns1_kits": 3.0, "ors_sachets": 0.2}
 
 
-def latest_stock_by_district(stock_dir, facilities):
+def latest_stock_by_district(stock_dir, facilities, max_orphan_share=0.05):
+    """Latest valid snapshot per registry facility, summed to district x resource.
+
+    Returns (stock, quality) where quality is a dict of input-quality counts."""
     files = sorted(f for f in Path(stock_dir).rglob("*")
                    if f.is_file() and f.suffix.lower() in (".json", ".jsonl"))
     if not files:
@@ -41,22 +54,48 @@ def latest_stock_by_district(stock_dir, facilities):
     snap = pd.concat(frames, ignore_index=True)
     snap["facility_id"] = snap["facility_id"].astype(str)
     snap["snapshot_date"] = pd.to_datetime(snap["snapshot_date"])
-    last = snap.sort_values("snapshot_date").drop_duplicates("facility_id", keep="last")
 
-    n_before = len(last)
+    # referential integrity on ROWS, before choosing the latest snapshot
+    registry = set(facilities["facility_id"])
+    is_orphan = ~snap["facility_id"].isin(registry)
+    n_rows, n_orphan_rows = len(snap), int(is_orphan.sum())
+    orphan_share = n_orphan_rows / n_rows if n_rows else 0.0
+    n_orphan_ids = int(snap.loc[is_orphan, "facility_id"].nunique())
+    valid = snap[~is_orphan]
+
+    covered = registry & set(valid["facility_id"])
+    missing = len(registry) - len(covered)
+    print(f"stock: {len(files)} files, {n_rows:,} snapshot rows; "
+          f"{n_orphan_rows:,} rows ({orphan_share:.2%}) have a facility_id not in the registry "
+          f"and are excluded ({n_orphan_ids:,} distinct orphan ids)")
+    print(f"stock: {len(covered)} of {len(registry)} registry facilities have a snapshot")
+    if orphan_share > max_orphan_share:
+        raise SystemExit(f"orphan share {orphan_share:.2%} exceeds --max-orphan-share "
+                         f"{max_orphan_share:.0%}: likely a facility_id format mismatch, not noise")
+    if missing:
+        raise SystemExit(f"{missing} registry facilities have no stock snapshot: check facility_id "
+                         f"format between the stock feed and {len(registry)} registry rows")
+
+    last = valid.sort_values("snapshot_date").drop_duplicates("facility_id", keep="last")
     last = last.merge(facilities[["facility_id", "district_code"]], on="facility_id")
-    dropped = n_before - len(last)
-    newest, oldest = snap["snapshot_date"].max(), last["snapshot_date"].min()
-    print(f"stock: {len(files)} files, {n_before} facilities with a snapshot, "
-          f"{dropped} dropped (orphan facility_id, not in registry)")
+    newest, oldest = valid["snapshot_date"].max(), last["snapshot_date"].min()
+    stale_days = int((newest - oldest).days)
     print(f"stock: latest snapshot {newest.date()}, oldest snapshot used {oldest.date()} "
-          f"({(newest - oldest).days} days older)")
-    if (newest - oldest).days > 14:
+          f"({stale_days} days older)")
+    if stale_days > 14:
         print("WARNING: some facilities' stock is over 14 days stale; it is treated as current")
+
+    quality = {"snapshot_files": len(files), "snapshot_rows": int(n_rows),
+               "orphan_rows": n_orphan_rows, "orphan_row_share": round(orphan_share, 5),
+               "distinct_orphan_ids": n_orphan_ids,
+               "registry_facilities": len(registry), "registry_facilities_with_stock": len(covered),
+               "latest_snapshot": str(newest.date()), "oldest_snapshot_used": str(oldest.date()),
+               "max_staleness_days": stale_days}
 
     long = last.melt(id_vars="district_code", value_vars=list(STOCK_COLS), var_name="resource",
                      value_name="stock")
-    return long.groupby(["district_code", "resource"], as_index=False)["stock"].sum()
+    stock = long.groupby(["district_code", "resource"], as_index=False)["stock"].sum()
+    return stock, quality
 
 
 def build_input(demand, stock, districts):
@@ -111,6 +150,9 @@ def main():
     ap.add_argument("--tolerance", type=float, default=0.05)
     ap.add_argument("--rule", choices=["relative", "need"], default="relative",
                     help="how efficiency loss is measured when recommending alpha (see allocate.recommend_alpha)")
+    ap.add_argument("--max-orphan-share", type=float, default=0.05,
+                    help="stop if more than this share of stock snapshot ROWS has an unknown "
+                         "facility_id (injected noise is about 0.5%%)")
     a = ap.parse_args()
 
     fac = pd.read_csv(a.facilities, dtype={"district_code": str, "facility_id": str},
@@ -122,7 +164,8 @@ def main():
     dis["district_code"] = dis["district_code"].str.zfill(2)
     pop = dis.set_index("district_code")["population"]
     demand = pd.read_csv(a.demand, dtype={"district_code": str}, encoding="utf-8-sig")
-    inp = build_input(demand, latest_stock_by_district(a.stock_dir, fac), dis)
+    stock, stock_quality = latest_stock_by_district(a.stock_dir, fac, a.max_orphan_share)
+    inp = build_input(demand, stock, dis)
 
     weights = load_weights(a.cases, sorted(inp["district_code"].unique()))
     print("severity weights:", describe(weights) if weights is not None else "equal (no --cases)")
@@ -141,6 +184,7 @@ def main():
     summary = {"budget": budget, "budget_frac": a.budget_frac, "recommended_alpha": alpha,
                "tolerance": a.tolerance, "rule": a.rule,
                "weights": "severity (from --cases)" if weights is not None else "equal",
+               "stock_input": stock_quality,
                "optimised": metrics(plan, UNIT_COSTS, weights),
                "proportional_baseline": metrics(base, UNIT_COSTS, weights)}
     (out / "recommendation.json").write_text(json.dumps(summary, indent=2))
