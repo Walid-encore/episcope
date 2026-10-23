@@ -34,7 +34,8 @@ STAGES = [
     ("export",   ["-m", "analytics.export_gold", "--gold", "data/gold", "--out", GOLD_CSV], None),
     ("alerts",   ["-m", "analytics.detection.make_alerts", "--gold", GOLD_CSV], None),
     ("demand",   ["-m", "analytics.optimise.run_demand", "--cases", GOLD_CSV + "/gold_weekly_cases.csv"], None),
-    ("allocate", ["-m", "analytics.optimise.run_allocation"], None),
+    # --cases switches on severity weights w_d (AN-7); without it the allocation is unweighted
+    ("allocate", ["-m", "analytics.optimise.run_allocation", "--cases", GOLD_CSV + "/gold_weekly_cases.csv"], None),
     ("calendar", ["-m", "analytics.calendar.preparedness", "--gold", GOLD_CSV], None),
     # evaluation needs ground truth, so it is not part of the delivery run (same rule as `make evaluate`)
     ("evaluate", ["-m", "analytics.detection.run_detection", "--gold", GOLD_CSV],
