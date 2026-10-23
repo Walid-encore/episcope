@@ -5,8 +5,9 @@ Inputs
   --stock-dir   data/incoming/stock (.json/.jsonl lines; latest snapshot per facility is used)
   --facilities  data/reference/facilities.csv   (ASSUMES columns facility_id, district_code)
   --districts   data/reference/districts.csv    (district_code, division, population)
-  --cases       gold_weekly_cases (csv/parquet) used for severity weights w_d (optional; omit
-                for equal weights, which is the sensitivity case)
+  --cases       gold_weekly_cases used for severity weights w_d (optional; omit for equal
+                weights, which is the sensitivity case). Accepts a parquet directory
+                (e.g. data/gold/gold_weekly_cases), a single .parquet file, or a CSV.
 Outputs (in --out): allocation_plan.csv, efficiency_equity_curve.csv, recommendation.json
 
 Planning uses demand_q90 (upper prediction quantile, Section 6.3). Beds are not a shippable
@@ -47,7 +48,7 @@ def latest_stock_by_district(stock_dir, facilities):
     dropped = n_before - len(last)
     newest, oldest = snap["snapshot_date"].max(), last["snapshot_date"].min()
     print(f"stock: {len(files)} files, {n_before} facilities with a snapshot, "
-          f"{dropped} dropped (facility_id not in registry)")
+          f"{dropped} dropped (orphan facility_id, not in registry)")
     print(f"stock: latest snapshot {newest.date()}, oldest snapshot used {oldest.date()} "
           f"({(newest - oldest).days} days older)")
     if (newest - oldest).days > 14:
@@ -76,11 +77,22 @@ def build_input(demand, stock, districts):
 
 
 def load_weights(path, district_codes):
-    """Severity weights from gold_weekly_cases, or None (equal weights) when no path is given."""
+    """Severity weights from gold_weekly_cases, or None (equal weights) when no path is given.
+
+    path may be a Spark-written parquet directory (partitioned by epi_year), a single
+    .parquet file, or a CSV export."""
     if not path:
         return None
-    cs = (pd.read_parquet(path) if str(path).endswith(".parquet")
-          else pd.read_csv(path, dtype={"district_code": str}, encoding="utf-8-sig"))
+    p = Path(path)
+    if not p.exists():
+        raise SystemExit(f"--cases path not found: {p}")
+    cs = (pd.read_parquet(p) if p.is_dir() or p.suffix.lower() == ".parquet"
+          else pd.read_csv(p, dtype={"district_code": str}, encoding="utf-8-sig"))
+    needed = {"district_code", "cases", "admitted_cases", "deaths"}
+    missing = needed - set(cs.columns)
+    if missing:
+        raise SystemExit(f"--cases table is missing columns {sorted(missing)}; "
+                         f"found: {list(cs.columns)}")
     return severity_weights(cs, district_codes)
 
 
@@ -92,7 +104,8 @@ def main():
     ap.add_argument("--districts", default="data/reference/districts.csv")
     ap.add_argument("--out", default="data/analytics/allocation")
     ap.add_argument("--cases", default=None,
-                    help="gold_weekly_cases (csv/parquet) for severity weights; omit for equal weights")
+                    help="gold_weekly_cases (parquet dir/file or csv) for severity weights; "
+                         "omit for equal weights")
     ap.add_argument("--budget-frac", type=float, default=0.5,
                     help="national budget as a share of the cost of all unmet need")
     ap.add_argument("--tolerance", type=float, default=0.05)
