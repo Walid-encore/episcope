@@ -1,5 +1,5 @@
 outbreak_id,detected,days_to_detect,pre_alert_weeks
-OB004,False,,1
+OB004,True,7.0,1
 OB005,False,,0
 OB006,False,,0
 OB007,True,7.0,0
