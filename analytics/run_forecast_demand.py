@@ -27,7 +27,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--gold", default=str(ROOT / "data" / "standin_gold"))
     ap.add_argument("--limit", type=int, default=0, help="use only the first N districts (quick test)")
-    ap.add_argument("--trim-last-weeks", type=int, default=3)
+    ap.add_argument("--trim-last-weeks", type=int, default=1)
     a = ap.parse_args()
 
     cases = pd.read_csv(Path(a.gold) / "gold_weekly_cases.csv", dtype={"district_code": str})

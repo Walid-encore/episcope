@@ -71,6 +71,25 @@ def season_window(idx, frac=0.5, min_amplitude=0.2):
     return out
 
 
+def yearly_windows(weekly, frac=0.5, min_amplitude=0.2, min_weeks=48):
+    """Season window of each calendar year on its own (that year's weekly incidence / its own mean).
+    Used only to show how far the peak and onset move from year to year (the calendar's uncertainty)."""
+    s = weekly.sort_index()
+    iso = s.index.isocalendar()
+    df = pd.DataFrame({"y": iso.year.to_numpy(), "w": iso.week.to_numpy().clip(max=WEEKS), "v": s.to_numpy()})
+    out = []
+    for y, g in df.groupby("y"):
+        v = g.groupby("w")["v"].sum().reindex(range(1, WEEKS + 1))
+        if v.notna().sum() < min_weeks or float(v.mean()) <= 0:
+            continue
+        a = v.interpolate(limit_direction="both").to_numpy() / float(v.mean())
+        a = (np.roll(a, 1) + a + np.roll(a, -1)) / 3.0
+        win = season_window(pd.Series(a, index=range(1, WEEKS + 1)), frac, min_amplitude)
+        if win["clear"]:
+            out.append(dict(year=int(y), onset=win["onset"], peak=win["peak"], end=win["end"]))
+    return out
+
+
 def shift_week(w, weeks):
     return (w - 1 + weeks) % WEEKS + 1
 
@@ -97,6 +116,15 @@ def build_calendar(cases, districts, year, frac, min_amp, lead_supplies, lead_ca
                        prepose_supplies_week=sup, start_campaign_week=cam,
                        onset_date=week_date(year, w["onset"]), peak_date=week_date(year, w["peak"]),
                        prepose_supplies_date=week_date(year, sup), start_campaign_date=week_date(year, cam))
+        if w["clear"]:
+            yw = yearly_windows(s.set_index("week_start_date")["incidence"], frac, min_amp)
+            if yw:
+                early = min(x["onset"] for x in yw)
+                sup_e = shift_week(early, -lead_supplies)
+                row.update(n_years_clear=len(yw), peak_week_earliest=min(x["peak"] for x in yw),
+                           peak_week_latest=max(x["peak"] for x in yw), onset_week_earliest=early,
+                           prepose_supplies_week_early=sup_e,
+                           prepose_supplies_date_early=week_date(year, sup_e))
         cal.append(row)
         prof += [dict(division=div, disease=dis, epi_week=k, seasonal_index=round(float(v), 3))
                  for k, v in idx.items()]

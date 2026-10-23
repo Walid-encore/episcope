@@ -50,11 +50,11 @@ def build_input(demand, stock, districts):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--demand", required=True)
+    ap.add_argument("--demand", default="data/analytics/planning_totals.csv")
     ap.add_argument("--stock-dir", default="data/incoming/stock")
     ap.add_argument("--facilities", default="data/reference/facilities.csv")
     ap.add_argument("--districts", default="data/reference/districts.csv")
-    ap.add_argument("--out", default="data/outputs/allocation")
+    ap.add_argument("--out", default="data/analytics/allocation")
     ap.add_argument("--budget-frac", type=float, default=0.5,
                     help="national budget as a share of the cost of all unmet need")
     ap.add_argument("--tolerance", type=float, default=0.05)

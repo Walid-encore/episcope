@@ -13,7 +13,7 @@ import pandas as pd
 
 from analytics.forecast.features import build_weekly_weather
 from analytics.forecast.prep import prepare_cases
-from analytics.forecast.forecast import run_pandas
+from analytics.engine import run_forecast
 from analytics.optimise.demand import admission_rates, compute_demand, planning_totals
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -39,8 +39,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cases", required=True)
     ap.add_argument("--weather", default=str(ROOT / "data" / "reference" / "weather.csv"))
-    ap.add_argument("--trim-last-weeks", type=int, default=3,
+    ap.add_argument("--trim-last-weeks", type=int, default=1,
                     help="drop the newest k weeks (partial week + late reports)")
+    ap.add_argument("--engine", choices=["spark", "pandas"], default="spark",
+                    help="spark (default, AN-4) or pandas (quick local run)")
     a = ap.parse_args()
 
     cases = load_cases(a.cases)
@@ -49,7 +51,7 @@ def main():
     cases = prepare_cases(cases, wx["week_start_date"].max(), a.trim_last_weeks)
     table = cases.merge(wx, on=["district_code", "week_start_date"], how="left")
 
-    fc = run_pandas(table)
+    fc = run_forecast(table, a.engine)
     live = fc[~fc["is_backtest"].astype(bool)]
     if live.empty:
         raise SystemExit("forecast has no live (non-backtest) rows; compute_demand needs them")
