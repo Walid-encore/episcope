@@ -113,16 +113,17 @@ def build_alerts(path: Path, diseases, suppressed: pd.DataFrame) -> pd.DataFrame
     keep = (a["week_start"] >= cutoff) & (flag | (a["score"] > a["threshold"] / 2))
     a = a[keep].copy()
     a["alert_flag"] = flag[keep]
-    # The score is a function of this week's count and a baseline made of earlier weeks that are published in
-    # cases_weekly, so for a suppressed week (1-4 cases) it could be inverted to recover the count: null it.
+    # A row is exported only when it is flagged or its score is above half the threshold, so even a row with the
+    # score nulled would reveal that the week's count was high; and the score itself could be inverted from the
+    # published neighbouring weeks. Rows on suppressed weeks (1-4 cases) are therefore dropped, not nulled.
     key = ["district_code", "disease", "epi_year", "epi_week"]
     a["epi_year"] = a["epi_year"].astype(int)
     a["epi_week"] = a["epi_week"].astype(int)
     sup = suppressed[key].drop_duplicates().assign(_sup=True)
     a = a.merge(sup, on=key, how="left")
-    a["_sup"] = a["_sup"].fillna(False).astype(bool)
-    a.loc[a["_sup"], "score"] = float("nan")
-    print(f"alerts: score nulled on {int(a['_sup'].sum()):,} rows whose week has a suppressed case count")
+    dropped = int(a["_sup"].notna().sum())
+    a = a[a["_sup"].isna()].drop(columns="_sup").reset_index(drop=True)
+    print(f"alerts: dropped {dropped:,} rows on weeks with a suppressed case count (PRV-2)")
     a["reporting_artefact_flag"] = a["reporting_artefact_flag"].fillna(False).astype(bool)
     a["score"] = a["score"].round(2)
     a["threshold"] = a["threshold"].round(2)
@@ -332,10 +333,21 @@ def validate(out: Path) -> list:
         leaked = [r for r in rows if r["cases"] is not None and 1 <= r["cases"] <= 4]
         mismatch = [r for r in rows if r["suppressed"] != (r["cases"] is None)
                     or (r["incidence_per_100k"] is None) != (r["cases"] is None)]
+        alerts_f = out / "alerts.json"
+        if alerts_f.exists():
+            sup_keys = {(r["district_code"], r["disease"], r["week_start"]) for r in rows if r["suppressed"]}
+            alert_rows = json.loads(alerts_f.read_text(encoding="utf-8"))["rows"]
+            on_sup = [r for r in alert_rows if (r["district_code"], r["disease"], r["week_start"]) in sup_keys]
+            print(f"  alert rows on suppressed weeks: {len(on_sup)}")
+            if on_sup:
+                problems.append(f"{len(on_sup)} alert rows sit on suppressed weeks (PRV-2)")
         if leaked:
             problems.append(f"{len(leaked)} rows publish a count of 1-4 (privacy rule PRV-2)")
         if mismatch:
             problems.append(f"{len(mismatch)} rows where suppressed, cases and incidence disagree")
+    fc_f = out / "forecast.json"
+    if fc_f.exists() and "actual_cases" in fc_f.read_text(encoding="utf-8"):
+        problems.append("forecast.json contains actual_cases (a count; not allowed unless suppressed, PRV-2)")
     for name in ("seasonality.json", "calendar.json"):
         f = out / name
         if f.exists() and "mean_weekly_cases" in f.read_text(encoding="utf-8"):
