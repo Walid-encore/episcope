@@ -9,8 +9,8 @@ skipped when the truth file is not present.
 
 Outputs (data/analytics): gold_alerts.parquet, gold_forecast.parquet, gold_demand.parquet,
 planning_totals.parquet, allocation/, allocation_peak*/, allocation_sensitivity/,
-preparedness_calendar.csv, seasonal_profile.csv,
-run_all_timing.csv.
+preparedness_calendar.csv, seasonal_profile.csv, seir_scenarios.csv, seir_summary.csv,
+seir_fit.json (AN-10, optional), run_all_timing.csv.
 """
 import argparse
 import subprocess
@@ -34,6 +34,23 @@ def step(name, module_args, timings):
         raise SystemExit(f"[{name}] FAILED with exit code {r.returncode} after {secs:.0f}s")
     timings.append({"stage": name, "seconds": round(secs, 1)})
     print(f"[{name}] done in {secs:.0f}s", flush=True)
+
+
+def optional_step(name, module_args, timings, stale=()):
+    """Like step(), but a failure only prints SKIPPED. Old outputs listed in `stale` are removed first."""
+    for f in stale:
+        Path(f).unlink(missing_ok=True)
+    print(f"\n=== {name} (optional) ===", flush=True)
+    t0 = time.time()
+    r = subprocess.run([sys.executable, "-m", *module_args], cwd=ROOT)
+    secs = time.time() - t0
+    if r.returncode != 0:
+        print(f"[{name}] SKIPPED (exit code {r.returncode}); the rest of the run is unaffected", flush=True)
+        timings.append({"stage": name + " (skipped)", "seconds": round(secs, 1)})
+        return False
+    timings.append({"stage": name, "seconds": round(secs, 1)})
+    print(f"[{name}] done in {secs:.0f}s", flush=True)
+    return True
 
 
 def need(path):
@@ -105,6 +122,11 @@ def main():
     step("preparedness calendar (AN-9)",
          ["analytics.calendar.preparedness", "--gold", str(gold), "--out", str(OUT)], timings)
     need(OUT / "preparedness_calendar.csv")
+
+    # AN-10 (bonus): the surge is found from the gold data alone, no ground truth is read; never stops the run
+    optional_step("SEIR scenarios (AN-10)",
+                  ["analytics.scenario.run_seir", "--gold-csv", str(gold), "--out", str(OUT)], timings,
+                  stale=[OUT / "seir_scenarios.csv", OUT / "seir_summary.csv", OUT / "seir_fit.json"])
 
     if a.evaluate:
         if TRUTH.exists():
