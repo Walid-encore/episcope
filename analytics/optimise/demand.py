@@ -80,13 +80,21 @@ def _require_known_diseases(f, a):
             raise ValueError(f"no conversion values in ASSUMPTIONS['{key}'] for disease(s) {missing}")
 
 
-def compute_demand(forecast, rates, assumptions=None, model="nb_lagged_weather", max_horizon=4):
-    """forecast = gold_forecast rows. Uses live (non-backtest) rows of `model` from the latest origin per series."""
+def compute_demand(forecast, rates, assumptions=None, model="nb_lagged_weather", max_horizon=4, origin=None):
+    """forecast = gold_forecast rows. By default uses live (non-backtest) rows of `model` from the latest origin
+    per series. origin = year*100 + week uses that forecast origin instead (backtest rows allowed), for
+    planning scenarios at a past date such as the seasonal peak."""
     a = ASSUMPTIONS if assumptions is None else assumptions
-    f = forecast[(forecast["model"] == model) & (~forecast["is_backtest"].astype(bool))].copy()
+    f = forecast[forecast["model"] == model].copy()
     f["district_code"] = f["district_code"].astype(str).str.zfill(2)
     f["_origin"] = f["origin_epi_year"] * 100 + f["origin_epi_week"]
-    f = f[f["_origin"] == f.groupby(KEYS)["_origin"].transform("max")]
+    if origin is None:
+        f = f[~f["is_backtest"].astype(bool)]
+        f = f[f["_origin"] == f.groupby(KEYS)["_origin"].transform("max")]
+    else:
+        f = f[f["_origin"] == int(origin)].drop_duplicates(KEYS + ["horizon_weeks"], keep="last")
+        if f.empty:
+            raise ValueError(f"no forecast rows for model {model} at origin {origin}")
     _require_full_horizons(f, max_horizon)
     _require_known_diseases(f, a)
     f = f.merge(rates, on=KEYS, how="left", validate="many_to_one")
@@ -127,6 +135,19 @@ def planning_totals(demand, max_horizon=4):
     out = pd.concat(rows, axis=1).reset_index()
     out.columns = ["district_code", "resource", "demand", "demand_q90"]
     return out.sort_values(["resource", "district_code"]).reset_index(drop=True)
+
+
+def implied_admission_rates(forecast, demand, model="nb_lagged_weather", assumptions=None):
+    """Recover the admission rates behind a gold_demand table: beds x 7 / (stay x forecast mean)."""
+    a = ASSUMPTIONS if assumptions is None else assumptions
+    f = forecast[(forecast["model"] == model) & (~forecast["is_backtest"].astype(bool))].copy()
+    f["district_code"] = f["district_code"].astype(str).str.zfill(2)
+    d = demand.copy()
+    d["district_code"] = d["district_code"].astype(str).str.zfill(2)
+    m = d.merge(f[KEYS + ["horizon_weeks", "pred_mean"]], on=KEYS + ["horizon_weeks"])
+    m = m[m["pred_mean"] > 0].copy()
+    m["admission_rate"] = m["beds_needed"] * 7 / (m["disease"].map(a["los_days"]) * m["pred_mean"])
+    return m.groupby(KEYS, as_index=False)["admission_rate"].median()
 
 
 SCALABLE = ["los_days", "saline_units_per_case", "ns1_tests_per_case", "ors_sachets_per_case"]

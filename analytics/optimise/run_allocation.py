@@ -40,8 +40,9 @@ STOCK_COLS = {"iv_saline_units": "iv_saline_units", "ns1_kits": "ns1_kits",
 UNIT_COSTS = {"iv_saline_units": 1.0, "ns1_kits": 3.0, "ors_sachets": 0.2}
 
 
-def latest_stock_by_district(stock_dir, facilities, max_orphan_share=0.05):
+def latest_stock_by_district(stock_dir, facilities, max_orphan_share=0.05, as_of=None):
     """Latest valid snapshot per registry facility, summed to district x resource.
+    as_of (a date) ignores snapshots after that date, for planning scenarios at a past date.
 
     Returns (stock, quality) where quality is a dict of input-quality counts."""
     files = sorted(f for f in Path(stock_dir).rglob("*")
@@ -54,6 +55,13 @@ def latest_stock_by_district(stock_dir, facilities, max_orphan_share=0.05):
     snap = pd.concat(frames, ignore_index=True)
     snap["facility_id"] = snap["facility_id"].astype(str)
     snap["snapshot_date"] = pd.to_datetime(snap["snapshot_date"])
+    if as_of is not None:
+        cut = pd.Timestamp(as_of)
+        n_all = len(snap)
+        snap = snap[snap["snapshot_date"] <= cut]
+        print(f"stock: as of {cut.date()}: using {len(snap):,} of {n_all:,} snapshot rows")
+        if snap.empty:
+            raise SystemExit(f"no stock snapshots on or before {cut.date()}")
 
     # referential integrity on ROWS, before choosing the latest snapshot
     registry = set(facilities["facility_id"])
@@ -148,6 +156,11 @@ def main():
     ap.add_argument("--budget-frac", type=float, default=0.5,
                     help="national budget as a share of the cost of all unmet need")
     ap.add_argument("--tolerance", type=float, default=0.05)
+    ap.add_argument("--as-of", default=None,
+                    help="date (YYYY-MM-DD): use only stock snapshots up to this date (scenario at a past date; "
+                         "pair with a --demand file built for the same origin)")
+    ap.add_argument("--min-cover", type=float, default=0.0,
+                    help="coverage floor: share of its OWN need every district is guaranteed (default 0 = off)")
     ap.add_argument("--rule", choices=["relative", "need"], default="relative",
                     help="how efficiency loss is measured when recommending alpha (see allocate.recommend_alpha)")
     ap.add_argument("--max-orphan-share", type=float, default=0.05,
@@ -164,17 +177,17 @@ def main():
     dis["district_code"] = dis["district_code"].str.zfill(2)
     pop = dis.set_index("district_code")["population"]
     demand = pd.read_csv(a.demand, dtype={"district_code": str}, encoding="utf-8-sig")
-    stock, stock_quality = latest_stock_by_district(a.stock_dir, fac, a.max_orphan_share)
+    stock, stock_quality = latest_stock_by_district(a.stock_dir, fac, a.max_orphan_share, a.as_of)
     inp = build_input(demand, stock, dis)
 
     weights = load_weights(a.cases, sorted(inp["district_code"].unique()))
     print("severity weights:", describe(weights) if weights is not None else "equal (no --cases)")
 
-    curve = efficiency_equity_curve(inp, pop, UNIT_COSTS, weights=weights)
+    curve = efficiency_equity_curve(inp, pop, UNIT_COSTS, weights=weights, min_cover=a.min_cover)
     alpha = recommend_alpha(curve, a.tolerance, a.rule)
     need = float(((inp["demand"] - inp["stock"]).clip(lower=0) * inp["resource"].map(UNIT_COSTS)).sum())
     budget = a.budget_frac * need
-    plan = solve_allocation(inp, pop, UNIT_COSTS, budget, alpha, weights=weights)
+    plan = solve_allocation(inp, pop, UNIT_COSTS, budget, alpha, weights=weights, min_cover=a.min_cover)
     base = proportional_baseline(inp, pop, UNIT_COSTS, budget)
 
     out = Path(a.out)
@@ -182,7 +195,8 @@ def main():
     plan.to_csv(out / "allocation_plan.csv", index=False)
     curve.to_csv(out / "efficiency_equity_curve.csv", index=False)
     summary = {"budget": budget, "budget_frac": a.budget_frac, "recommended_alpha": alpha,
-               "tolerance": a.tolerance, "rule": a.rule,
+               "tolerance": a.tolerance, "rule": a.rule, "as_of": a.as_of, "min_cover": a.min_cover,
+               "min_cover_used": plan.attrs.get("min_cover_used", 0.0),
                "weights": "severity (from --cases)" if weights is not None else "equal",
                "stock_input": stock_quality,
                "optimised": metrics(plan, UNIT_COSTS, weights),

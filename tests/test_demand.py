@@ -154,3 +154,21 @@ def test_q90_is_floored_at_the_mean():
     fc = _fc([dict(district_code="01", disease="dengue", horizon_weeks=1, pred_mean=2.4, q90=0.0)])
     d = compute_demand(fc, _rates()).iloc[0]
     assert d.iv_saline_units_needed_q90 == pytest.approx(2.4 * 1.12)
+
+
+def test_origin_selects_a_backtest_origin():
+    rows = [dict(district_code="01", disease="dengue", horizon_weeks=1, pred_mean=100.0, q90=150.0),
+            dict(district_code="01", disease="dengue", horizon_weeks=1, pred_mean=50.0, q90=70.0,
+                 origin_epi_week=30, is_backtest=True)]
+    d = compute_demand(_fc(rows), _rates(), origin=202530)
+    assert len(d) == 1 and d.iv_saline_units_needed.iloc[0] == pytest.approx(50 * 1.12)
+    with pytest.raises(ValueError, match="origin"):
+        compute_demand(_fc(rows), _rates(), origin=209999)
+
+
+def test_implied_rates_round_trip():
+    from analytics.optimise.demand import implied_admission_rates
+    fc = _fc([dict(district_code="01", disease=ds, horizon_weeks=1, pred_mean=40.0, q90=60.0)
+              for ds in ("dengue", "diarrhoeal")])
+    got = implied_admission_rates(fc, compute_demand(fc, _rates(0.2, 0.1))).set_index("disease")["admission_rate"]
+    assert got["dengue"] == pytest.approx(0.2) and got["diarrhoeal"] == pytest.approx(0.1)
