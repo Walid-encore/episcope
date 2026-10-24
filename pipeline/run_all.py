@@ -37,6 +37,7 @@ STAGES = [
     # --cases switches on severity weights w_d (AN-7); without it the allocation is unweighted
     ("allocate", ["-m", "analytics.optimise.run_allocation", "--cases", GOLD_CSV + "/gold_weekly_cases.csv"], None),
     ("calendar", ["-m", "analytics.calendar.preparedness", "--gold", GOLD_CSV], None),
+    ("serve",    ["-m", "pipeline.serving_export"], None),
     # evaluation needs ground truth, so it is not part of the delivery run (same rule as `make evaluate`)
     ("evaluate", ["-m", "analytics.detection.run_detection", "--gold", GOLD_CSV],
      lambda a: None if a.evaluate else "needs data/truth; add --evaluate to run it"),
