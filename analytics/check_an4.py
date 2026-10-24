@@ -20,8 +20,3 @@ def check(label, c):
     print(f"  matched {m[col].notna().sum()} of {len(b)}, exactly equal {(m[col] == m['actual_cases']).sum()}")
 
 check("data\\gold", pd.read_parquet(r"data\gold\gold_weekly_cases"))
-p = r"data\standin_gold\gold_weekly_cases.csv"
-if os.path.isfile(p):
-    check("data\\standin_gold", pd.read_csv(p, dtype={"district_code": str}))
-else:
-    print("\nno standin_gold gold_weekly_cases.csv on disk")

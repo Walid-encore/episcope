@@ -1,6 +1,6 @@
 """AN-1 acceptance checks on gold_alerts.parquet (no ground truth is read).
 
-    python -m analytics.check_an1 [--alerts data/analytics/gold_alerts.parquet] [--gold data/standin_gold]
+    python -m analytics.check_an1 [--alerts data/analytics/gold_alerts.parquet] [--gold data/gold_csv]
                                   [--other data/analytics_pandas/gold_alerts.parquet]
 
 --gold   also checks that every input week has exactly one alert row.

@@ -1,6 +1,6 @@
 """gold_alerts (docs/gold_contract.md): EARS C2 scores and alerts per district x disease x REPORT week.
 
-    python -m analytics.detection.make_alerts [--gold data/standin_gold] [--out data/analytics]
+    python -m analytics.detection.make_alerts [--gold data/gold_csv] [--out data/analytics]
                                               [--engine spark|pandas]
 
 Runs EARS C2 at a FIXED operating point and writes gold_alerts.parquet. ONE ROW PER district x disease x
@@ -132,7 +132,7 @@ def build_alerts(data, threshold=THRESHOLD, min_cases=MIN_CASES, run_id="local",
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--gold", default=str(ROOT / "data" / "standin_gold"))
+    ap.add_argument("--gold", default=str(ROOT / "data" / "gold_csv"))
     ap.add_argument("--out", default=str(ROOT / "data" / "analytics"))
     ap.add_argument("--threshold", type=float, default=THRESHOLD)
     ap.add_argument("--min-cases", type=int, default=MIN_CASES)

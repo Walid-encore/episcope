@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PROTECTED_DIRS = ["analytics/detection", "analytics/forecast", "analytics/optimise",
                   "analytics/calendar"]
 # Evaluation code is allowed to read the truth files.
-EVALUATION_FILES = {"evaluate.py", "run_detection.py", "run_fixture.py", "diag_artefact.py"}
+EVALUATION_FILES = {"evaluate.py", "run_detection.py", "artefact_demo.py"}
 
 
 def _protected_files():

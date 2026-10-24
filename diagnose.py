@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(".")
-GOLD = ROOT / "data" / ("gold_csv" if (ROOT / "data" / "gold_csv").exists() else "standin_gold")
+GOLD = ROOT / "data" / "gold_csv"
 AN = ROOT / "data" / "analytics"
 pd.set_option("display.width", 160)
 

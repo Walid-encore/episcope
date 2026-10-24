@@ -1,6 +1,7 @@
 """Detection evaluation on the report-week gold tables (AN-1, AN-2, AN-3, conflict C1).
 
-    python -m analytics.detection.run_detection [--gold data/gold] [--max-fa 0.5] [--diseases dengue ili ...]
+    python -m analytics.detection.run_detection [--gold data/gold_csv] [--max-fa 0.5] [--diseases dengue ili ...]
+                                                [--run-id RUN] [--out data/analytics]
 
 Runs EARS C2 (last-7-usable-weeks baseline, variants.py) and CUSUM once (scores do not depend on the threshold), sweeps the threshold,
 compares against ground truth (only this script and evaluate.py read data/truth), and shows
@@ -19,6 +20,9 @@ Evaluation choices (state them in the report):
     feasible the summary says feasible=False and shows the least noisy point instead.
   * AN-3 artefact check and a per-outbreak "was it already alerting?" diagnostic are written to
     docs/experiments/.
+  * AN-2 results are also written to gold_eval_metrics (component 'detection'): the operating point of each
+    detector (threshold null) and its trade-off curve at the operating point's count floor (threshold set).
+    run_id defaults to the run_id in gold_alerts. Rows are replaced per (run_id, component).
 After a run, copy the EARS C2 operating point (threshold, min_cases) into THRESHOLD / MIN_CASES in make_alerts.py
 and re-run make_alerts, so the alerts file and this evaluation use the same point.
 """
@@ -27,6 +31,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+from analytics.eval_metrics import detection_rows, resolve_run_id, upsert
 
 from .cusum import cusum_pandas
 from .evaluate import (artefact_check, evaluate, load_artefacts, load_truth, per_outbreak_context,
@@ -52,13 +58,16 @@ def pick_operating_point(curve, max_fa):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--gold", default=str(ROOT / "data" / "standin_gold"))
+    ap.add_argument("--gold", default=str(ROOT / "data" / "gold_csv"))
     ap.add_argument("--truth", default=str(ROOT / "data" / "truth" / "ground_truth_outbreaks.csv"))
     ap.add_argument("--artefacts", default=str(ROOT / "data" / "truth" / "ground_truth_artefacts.csv"))
     ap.add_argument("--max-fa", type=float, default=0.5)
     ap.add_argument("--grace", type=int, default=14)
     ap.add_argument("--diseases", nargs="+", default=None,
                     help="restrict scoring to these diseases (default: every disease in gold)")
+    ap.add_argument("--out", default=str(ROOT / "data" / "analytics"), help="folder of gold_eval_metrics")
+    ap.add_argument("--alerts", default=str(ROOT / "data" / "analytics" / "gold_alerts.parquet"))
+    ap.add_argument("--run-id", default=None, help="default: the run_id in gold_alerts")
     a = ap.parse_args()
 
     data = load_detector_input(a.gold)
@@ -83,7 +92,7 @@ def main():
     runs = {"ears_c2": ears_c2_usable_pandas, "cusum": cusum_pandas}
     exp = ROOT / "docs" / "experiments"
     exp.mkdir(parents=True, exist_ok=True)
-    summary, by_disease = [], []
+    summary, by_disease, curves_by = [], [], {}
     artefacts = load_artefacts(a.artefacts)
     keys = ["district_code", "disease", "week_start_date"]
     for name, fn in runs.items():
@@ -94,6 +103,7 @@ def main():
         curve = pd.concat(curves, ignore_index=True)
         curve.insert(0, "detector", name)
         curve.to_csv(exp / f"detection_sweep_{name}.csv", index=False)
+        curves_by[name] = curve
         op, feasible = pick_operating_point(curve, a.max_fa)
         at = scored.copy()
         at["alert_flag"] = (at["score"] >= op["threshold"]) & (at["cases"] >= op["min_cases"])
@@ -141,6 +151,11 @@ def main():
         bd.to_csv(exp / "detection_by_disease.csv", index=False)
         print("\nPer disease at each operating point (each disease against its own outbreaks):")
         print(bd.round(3).to_string(index=False))
+
+    run_id = resolve_run_id(a.run_id, a.alerts)
+    path, n = upsert(detection_rows(s, curves_by, run_id), Path(a.out))
+    print(f"\nwrote {path.name}: run_id {run_id}, {n} rows in table (detection rows replaced for this run)")
+
     e = s[s["detector"] == "ears_c2"].iloc[0]
     print(f"\nNext: set THRESHOLD = {float(e['threshold'])} and MIN_CASES = {int(e['min_cases'])} in "
           f"analytics/detection/make_alerts.py, then re-run make_alerts so the alerts match this evaluation.")

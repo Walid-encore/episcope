@@ -57,3 +57,38 @@ def upsert(new, out_dir):
     new.to_parquet(pq, index=False)
     new.to_csv(out / "gold_eval_metrics.csv", index=False)
     return pq, len(new)
+
+METRICS = ("sensitivity", "false_alerts_per_district_year", "median_days_to_detect")
+
+
+def detection_rows(ops, curves, run_id):
+    """AN-2 rows for gold_eval_metrics (component 'detection').
+
+    ops    : detection_operating_points table (one row per detector).
+    curves : {detector: sweep table with threshold, min_cases and the three metrics}.
+    Rows with a null threshold are the operating point. Rows with a threshold are the trade-off
+    curve at the operating point's count floor. A curve point with no detected outbreak has no
+    median_days_to_detect row (it is undefined, not zero).
+    """
+    rows = []
+
+    def add(metric, value, det, thr):
+        rows.append(dict(run_id=str(run_id), component="detection", metric=metric, value=float(value),
+                         model_or_detector=det, threshold=thr))
+
+    for _, o in ops.iterrows():
+        det = o["detector"]
+        for metric, col in (("sensitivity", "sensitivity"),
+                            ("false_alerts_per_district_year", "false_per_district_year"),
+                            ("median_days_to_detect", "median_days_to_detect")):
+            if pd.notna(o[col]):
+                add(metric, o[col], det, np.nan)
+        add("operating_threshold", o["threshold"], det, np.nan)
+        add("operating_min_cases", o["min_cases"], det, np.nan)
+        add("operating_point_feasible", float(bool(o["feasible"])), det, np.nan)
+        curve = curves[det]
+        for _, p in curve[curve["min_cases"] == o["min_cases"]].iterrows():
+            for metric in METRICS:
+                if pd.notna(p[metric]):
+                    add(metric, p[metric], det, float(p["threshold"]))
+    return pd.DataFrame(rows, columns=COLS)

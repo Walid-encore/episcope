@@ -175,6 +175,8 @@ Details (as written by `analytics/eval_metrics.py`):
 - `forecast` metrics are `mae`, `coverage_80`, `wis` and `wis_ratio_vs_naive` (model WIS divided by the seasonal-naive WIS at the same horizon; written for the non-baseline model only).
 - A metric name without a suffix covers all horizons. The suffix `_h1` to `_h4` gives the horizon in weeks, for example `wis_h2` or `wis_ratio_vs_naive_h4`.
 - `threshold` is null for `forecast` rows.
+- `detection` metrics are `sensitivity`, `false_alerts_per_district_year` and `median_days_to_detect`, one set per detector in `model_or_detector` (`ears_c2`, `cusum`). Rows with a null `threshold` are the chosen operating point of the detector. Rows with a `threshold` are its trade-off curve (conflict C1), taken at the operating point's minimum-case floor. A curve point at which no outbreak is detected has no `median_days_to_detect` row.
+- `operating_threshold`, `operating_min_cases` and `operating_point_feasible` (1 when false alerts per district-year are within the limit, else 0) describe the operating point; their `threshold` is null.
 
 ### gold_dq_report (batch x rule)
 Contract columns: batch_id, rule_id, reason_code (matches the quarantine table), rows_checked, rows_failed, pass_rate, run_ts.

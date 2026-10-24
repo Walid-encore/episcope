@@ -1,7 +1,7 @@
 """Seasonal preparedness calendar (AN-9): per division and disease, when the season starts, peaks
 and ends, and when to pre-position supplies and start prevention campaigns.
 
-    python -m analytics.calendar.preparedness [--gold data/standin_gold] [--year 2026]
+    python -m analytics.calendar.preparedness [--gold data/gold_csv] [--year 2026]
 
 Method
   1. Weekly incidence per 100,000 for each division x disease (onset weeks, edge weeks trimmed).
@@ -133,7 +133,7 @@ def build_calendar(cases, districts, year, frac, min_amp, lead_supplies, lead_ca
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--gold", default=str(ROOT / "data" / "standin_gold"))
+    ap.add_argument("--gold", default=str(ROOT / "data" / "gold_csv"))
     ap.add_argument("--districts", default=str(ROOT / "data" / "reference" / "districts.csv"))
     ap.add_argument("--year", type=int, default=None,
                     help="target year; default = latest ISO year in the data + 1")

@@ -1,249 +1,120 @@
-"""AN-2 acceptance checks on the detection evaluation (reads the CSVs run_detection.py wrote).
+"""AN-2: verify the detection rows of gold_eval_metrics.
 
-    python -m analytics.check_an2 [--gold data/gold] [--truth data/truth/ground_truth_outbreaks.csv]
-                                  [--exp docs/experiments] [--alerts data/analytics/gold_alerts.parquet]
-                                  [--max-fa 0.5]
+    python -m analytics.check_an2 [--run-id RUN] [--max-fa 0.5]
 
-Run run_detection.py first. This script is read-only and does not re-run any detector.
-It reads the truth file only to count outbreaks and list the missed ones.
-Hard checks print [PASS]/[FAIL]; [WARN] marks things to fix or justify in the report.
+Checks the table against the evaluation files written by run_detection (docs/experiments/detection_*.csv),
+recomputes the operating-point rule from the full sweep, and tests basic properties of a threshold sweep.
+Reads no ground truth (data/truth). Exit code 1 if any check fails.
 """
 import argparse
-import re
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
+from analytics.eval_metrics import COLS, resolve_run_id
+
 ROOT = Path(__file__).resolve().parents[1]
-DETECTORS = ["ears_c2", "cusum"]
-results, warns = [], []
+A = ROOT / "data" / "analytics"
+EXP = ROOT / "docs" / "experiments"
+METRICS = ("sensitivity", "false_alerts_per_district_year", "median_days_to_detect")
 
 
-def check(name, ok, detail=""):
-    results.append(bool(ok))
-    print(f"[{'PASS' if ok else 'FAIL'}] {name}" + (f"  ({detail})" if detail else ""))
-
-
-def warn(name, detail=""):
-    warns.append(name)
-    print(f"[WARN] {name}" + (f"  ({detail})" if detail else ""))
-
-
-def head(t):
-    print(f"\n--- {t} " + "-" * max(0, 70 - len(t)))
-
-
-def pick(df, exact, loose=None):
-    for c in exact:
-        if c in df.columns:
-            return c
-    if loose:
-        for c in df.columns:
-            if loose in c.lower():
-                return c
-    return None
-
-
-def read(p):
-    return pd.read_csv(p) if Path(p).exists() else None
+def close(x, y):
+    return bool(np.isclose(float(x), float(y), rtol=1e-6, atol=1e-9))
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--gold", default=str(ROOT / "data" / "gold"))
-    ap.add_argument("--truth", default=str(ROOT / "data" / "truth" / "ground_truth_outbreaks.csv"))
-    ap.add_argument("--exp", default=str(ROOT / "docs" / "experiments"))
-    ap.add_argument("--alerts", default=str(ROOT / "data" / "analytics" / "gold_alerts.parquet"))
-    ap.add_argument("--max-fa", type=float, default=0.5)
+    ap.add_argument("--table", default=str(A / "gold_eval_metrics.parquet"))
+    ap.add_argument("--alerts", default=str(A / "gold_alerts.parquet"))
+    ap.add_argument("--exp", default=str(EXP))
+    ap.add_argument("--max-fa", type=float, default=0.5, help="same limit as run_detection --max-fa")
+    ap.add_argument("--run-id", default=None)
     a = ap.parse_args()
+
     exp = Path(a.exp)
+    run_id = resolve_run_id(a.run_id, a.alerts)
+    t = pd.read_parquet(a.table)
+    ops = pd.read_csv(exp / "detection_operating_points.csv")
+    results = []
 
-    # ------------------------------------------------------------------ 1. truth vs gold
-    head("1. Ground truth vs what gold can detect")
-    n_scorable = None
-    truth = read(a.truth)
-    check("truth file found", truth is not None, a.truth)
-    if truth is not None:
-        print(f"truth: {len(truth)} outbreaks | by disease {truth.groupby('disease').size().to_dict()}"
-              + (f" | kinds {truth['kind'].value_counts().to_dict()}" if "kind" in truth.columns else ""))
-        check("at least 30 injected outbreaks in the truth file", len(truth) >= 30, f"{len(truth)}")
-        try:
-            from analytics.detection.gold_input import load_detector_input
-            g = load_detector_input(a.gold)
-            gd = set(g["disease"].unique())
-            n_scorable = int(truth["disease"].isin(gd).sum())
-            missing = sorted(set(truth["disease"]) - gd)
-            print(f"gold: diseases {sorted(gd)} | {g.groupby(['district_code', 'disease']).ngroups} series")
-            check("every truth outbreak is scorable (its disease exists in gold)", not missing,
-                  f"{n_scorable} of {len(truth)} scorable; diseases missing from gold: {missing}" if missing else
-                  f"{n_scorable} of {len(truth)}")
-        except Exception as e:  # noqa: BLE001
-            warn("could not load gold", f"{type(e).__name__}: {e}")
+    def check(name, ok, detail=""):
+        results.append(bool(ok))
+        print(f"[{'PASS' if ok else 'FAIL'}] {name}" + (f"  ({detail})" if detail else ""))
 
-    # ------------------------------------------------------------------ 2. sweeps
-    head("2. Threshold sweeps (conflict C1)")
-    sweeps = {}
-    for det in DETECTORS:
-        d = read(exp / f"detection_sweep_{det}.csv")
-        check(f"{det}: detection_sweep_{det}.csv exists", d is not None)
-        if d is None:
-            continue
-        sweeps[det] = d
-        thr = pick(d, ["threshold"], "thresh")
-        sens = pick(d, ["sensitivity"], "sens")
-        fa = pick(d, ["false_alerts_per_district_year", "false_per_district_year"], "per_district")
-        dly = pick(d, ["median_days_to_detect"], "median")
-        flo = pick(d, ["min_cases"], "floor")
-        nd, no = pick(d, ["n_detected"]), pick(d, ["n_outbreaks"])
-        need = {"threshold": thr, "sensitivity": sens, "false alerts": fa, "median days": dly}
-        miss = [k for k, v in need.items() if v is None]
-        check(f"{det}: sweep has threshold, sensitivity, false alerts and median days", not miss,
-              f"missing {miss}" if miss else f"{len(d)} rows")
-        if miss:
-            continue
-        check(f"{det}: at least 8 distinct thresholds saved", d[thr].nunique() >= 8,
-              f"{d[thr].nunique()} thresholds, {d[flo].nunique() if flo else 1} count floors")
-        check(f"{det}: sensitivity within [0, 1]", d[sens].between(0, 1).all())
-        bad_s = bad_f = 0
-        for _, g in (d.groupby(flo) if flo else [(None, d)]):
-            g = g.sort_values(thr)
-            bad_s += int((g[sens].diff().dropna() > 1e-9).any())
-            bad_f += int((g[fa].diff().dropna() > 0.02).any())
-        check(f"{det}: sensitivity never rises as the threshold rises", bad_s == 0, f"{bad_s} floor group(s) violate")
-        if bad_f:
-            warn(f"{det}: false alerts rise with the threshold in {bad_f} floor group(s)",
-                 "episodes can split when a higher threshold breaks one alert run into two; check")
-        if nd and no:
-            check(f"{det}: sensitivity == n_detected / n_outbreaks",
-                  np.allclose(d[sens], (d[nd] / d[no]).round(3), atol=1.5e-3))
-            check(f"{det}: one outbreak count across the sweep", d[no].nunique() == 1, f"{sorted(d[no].unique())}")
-            if n_scorable is not None:
-                check(f"{det}: outbreaks scored == scorable outbreaks in gold", int(d[no].iloc[0]) == n_scorable,
-                      f"scored {int(d[no].iloc[0])}, scorable {n_scorable}")
+    print(f"table {a.table}: {len(t)} rows, run_ids {sorted(t['run_id'].astype(str).unique())}")
+    print(f"checking run_id {run_id}")
+    key = ["run_id", "component", "metric", "model_or_detector", "threshold"]
+    check("table has exactly the contract columns", list(t.columns) == COLS)
+    check("no duplicate metric rows", not t.duplicated(key).any(), f"{int(t.duplicated(key).sum())} duplicates")
 
-    # ------------------------------------------------------------------ 3. operating points
-    head("3. Operating points")
-    op = read(exp / "detection_operating_points.csv")
-    check("detection_operating_points.csv exists", op is not None)
-    op_row = {}
-    if op is not None:
-        print(op.to_string(index=False))
-        for _, r in op.iterrows():
-            det = r["detector"]
-            op_row[det] = r
-            fa = r.get("false_per_district_year", np.nan)
-            feas = str(r.get("feasible", "")).lower() == "true"
-            if feas:
-                check(f"{det}: feasible point has false alerts <= {a.max_fa} per district-year", fa <= a.max_fa + 1e-9,
-                      f"{fa}")
-            else:
-                warn(f"{det}: no feasible operating point under {a.max_fa} false alerts per district-year")
-            md = r.get("median_days_to_detect", np.nan)
-            if pd.notna(md) and md <= 0:
-                warn(f"{det}: median days to detection is {md}",
-                     "alerts before onset or inside the grace window may be counted; check before quoting")
-            sw = sweeps.get(det)
-            if sw is not None:
-                thr = pick(sw, ["threshold"], "thresh")
-                sens = pick(sw, ["sensitivity"], "sens")
-                flo = pick(sw, ["min_cases"], "floor")
-                m = sw[(sw[thr] - r["threshold"]).abs() < 1e-9]
-                if flo:
-                    m = m[m[flo] == r["min_cases"]]
-                check(f"{det}: operating point appears in its sweep with the same sensitivity",
-                      len(m) > 0 and abs(float(m.iloc[0][sens]) - float(r["sensitivity"])) < 1e-3)
-        # artefacts (AN-3)
-        raw = [r.get("artefact_raw_alert_weeks", 0) for _, r in op.iterrows()] + \
-              [r.get("artefact_raw_at_default", 0) for _, r in op.iterrows()]
-        if all(pd.isna(x) or x == 0 for x in raw):
-            warn("AN-3: the naive detector never fires on the artefact (all raw artefact alert weeks are 0)",
-                 "find a case where it fires and the pipeline suppresses the alert")
+    r = t[(t["run_id"].astype(str) == run_id) & (t["component"] == "detection")]
+    check("run has detection rows", len(r) > 0, f"{len(r)} rows")
+    check("no NaN values", not r["value"].isna().any())
+    sens = r[r["metric"] == "sensitivity"]["value"]
+    check("sensitivity within [0, 1]", bool(((sens >= 0) & (sens <= 1)).all()))
+    for m in ("false_alerts_per_district_year", "median_days_to_detect"):
+        v = r[r["metric"] == m]["value"]
+        check(f"{m} is not negative", bool((v >= 0).all()))
+
+    dets = sorted(r["model_or_detector"].unique())
+    check("two detectors compared (AN-3)", len(dets) >= 2, str(dets))
+    check("detectors equal those in detection_operating_points.csv", set(dets) == set(ops["detector"]))
+
+    for _, o in ops.iterrows():
+        det = o["detector"]
+        d = r[r["model_or_detector"] == det]
+        opr = d[d["threshold"].isna()].set_index("metric")["value"]
+        print(f"\n{det}: operating point threshold {o['threshold']}, floor {int(o['min_cases'])}, "
+              f"feasible {bool(o['feasible'])}")
+        want = {"sensitivity": o["sensitivity"], "false_alerts_per_district_year": o["false_per_district_year"],
+                "median_days_to_detect": o["median_days_to_detect"], "operating_threshold": o["threshold"],
+                "operating_min_cases": o["min_cases"], "operating_point_feasible": float(bool(o["feasible"]))}
+        want = {k: v for k, v in want.items() if pd.notna(v)}
+        ok = set(opr.index) == set(want) and all(close(opr[k], want[k]) for k in want)
+        check(f"{det}: operating-point rows equal detection_operating_points.csv", ok,
+              f"{len(opr)} rows, expected {len(want)}")
+
+        sweep = pd.read_csv(exp / f"detection_sweep_{det}.csv")
+        floor = int(o["min_cases"])
+        sw = sweep[sweep["min_cases"] == floor]
+        cv = d[d["threshold"].notna()]
+        check(f"{det}: trade-off curve has at least 5 thresholds", cv["threshold"].nunique() >= 5,
+              f"{cv['threshold'].nunique()} thresholds")
+        expd = {(m, round(float(p["threshold"]), 9)): float(p[m])
+                for _, p in sw.iterrows() for m in METRICS if pd.notna(p[m])}
+        got = {(m, round(float(th), 9)): float(v) for m, th, v in zip(cv["metric"], cv["threshold"], cv["value"])}
+        ok = set(expd) == set(got) and all(close(expd[k], got[k]) for k in expd)
+        check(f"{det}: curve rows equal the sweep at count floor {floor}", ok,
+              f"{len(got)} rows, expected {len(expd)}")
+
+        s_ = sw.sort_values("threshold")["sensitivity"].to_numpy(float)
+        check(f"{det}: sensitivity never rises when the threshold rises", bool((np.diff(s_) <= 1e-12).all()))
+        k = ("sensitivity", round(float(o["threshold"]), 9))
+        check(f"{det}: operating point lies on its curve",
+              k in got and close(got[k], o["sensitivity"]),
+              f"curve {got.get(k)} vs operating {o['sensitivity']}")
+
+        ok_rows = sweep[sweep["false_alerts_per_district_year"] <= a.max_fa]
+        if bool(o["feasible"]):
+            best_s = ok_rows["sensitivity"].max() if len(ok_rows) else np.nan
+            best_d = ok_rows[ok_rows["sensitivity"] == best_s]["median_days_to_detect"].min() if len(ok_rows) else np.nan
+            ok = (len(ok_rows) > 0 and close(o["sensitivity"], best_s) and close(o["median_days_to_detect"], best_d)
+                  and o["false_per_district_year"] <= a.max_fa + 1e-9)
+            check(f"{det}: operating point is the best point with false alerts <= {a.max_fa}", ok,
+                  f"operating sens {o['sensitivity']:.4f} / days {o['median_days_to_detect']}, "
+                  f"recomputed {best_s:.4f} / {best_d}")
         else:
-            print(f"artefact raw alert weeks (operating point / default): {raw}")
-        for _, r in op.iterrows():
-            bf = str(r.get("artefact_backfill_flagged", ""))
-            m = re.fullmatch(r"(\d+)/(\d+)", bf)
-            if m:
-                check(f"{r['detector']}: all back-fill weeks flagged as artefacts", m.group(1) == m.group(2), bf)
+            check(f"{det}: marked infeasible and no sweep point meets the limit {a.max_fa}", ok_rows.empty,
+                  f"{len(ok_rows)} points meet it")
 
-    # ------------------------------------------------------------------ 4. per-outbreak
-    head("4. Per-outbreak results and missed outbreaks")
-    for det in DETECTORS:
-        po = read(exp / f"detection_per_outbreak_{det}.csv")
-        if po is None:
-            warn(f"{det}: detection_per_outbreak_{det}.csv not found")
-            continue
-        det_c = pick(po, ["detected"], "detect")
-        dly_c = pick(po, ["days_to_detect", "delay_days"], "delay")
-        oid = pick(po, ["outbreak_id"], "outbreak")
-        if n_scorable is not None:
-            check(f"{det}: per-outbreak file has one row per scorable outbreak", len(po) == n_scorable,
-                  f"{len(po)} rows, {n_scorable} scorable")
-        if dly_c:
-            v = pd.to_numeric(po[dly_c], errors="coerce")
-            if (v < 0).any():
-                warn(f"{det}: {int((v < 0).sum())} negative detection delays", "alert before onset")
-            if (v == 0).any():
-                warn(f"{det}: {int((v == 0).sum())} zero-day detections", "same-day or grace-window alerts")
-        if det_c and oid:
-            hit = po[det_c].astype(str).str.lower().isin(["true", "1", "yes"])
-            missed = po[~hit]
-            if det in op_row and "n_detected" in op.columns:
-                check(f"{det}: detected count matches the operating point", int(hit.sum()) == int(op_row[det]["n_detected"]),
-                      f"{int(hit.sum())} vs {int(op_row[det]['n_detected'])}")
-            if det == "ears_c2":
-                print(f"EARS C2 detected {int(hit.sum())} of {len(po)}; missed:")
-                if len(missed) and truth is not None:
-                    info = truth[truth["outbreak_id"].isin(missed[oid])]
-                    print(info.to_string(index=False))
-                elif len(missed):
-                    print(missed[oid].tolist())
-
-    # ------------------------------------------------------------------ 5. alerts file
-    head("5. gold_alerts matches the evaluated operating point")
-    ap_path = Path(a.alerts)
-    if ap_path.exists() and "ears_c2" in op_row:
-        al = pd.read_parquet(ap_path, columns=["threshold", "min_cases", "district_code", "disease"])
-        r = op_row["ears_c2"]
-        check("gold_alerts threshold equals the evaluated EARS C2 threshold",
-              set(al["threshold"].unique()) == {float(r["threshold"])}, f"{al['threshold'].unique().tolist()} vs {r['threshold']}")
-        check("gold_alerts min_cases equals the evaluated floor",
-              set(al["min_cases"].unique()) == {int(r["min_cases"])}, f"{al['min_cases'].unique().tolist()} vs {r['min_cases']}")
-        print(f"gold_alerts: {al.groupby(['district_code', 'disease']).ngroups} series, diseases {sorted(al.disease.unique())}")
-    else:
-        warn("gold_alerts.parquet or the EARS C2 operating point missing; skipped")
-
-    # ------------------------------------------------------------------ 6. leakage
-    head("6. Ground-truth leakage")
-    allowed = {"run_detection.py", "evaluate.py", "check_an1.py", "check_an2.py", "plot_tradeoff.py",
-               "compare_baselines.py", "run_all.py", "run_fixture.py"}      # evaluation drivers
-    # code that actually loads the truth; comments/docstrings saying "never reads truth" do not count
-    pat = re.compile(r"(read_csv|read_parquet|load_truth|open)\s*\(.*truth|^\s*[A-Z_]*TRUTH\s*=", re.I)
-    hits = []
-    for p in (ROOT / "analytics").rglob("*.py"):
-        if p.name in allowed or p.name.startswith("diag_"):
-            continue
-        for i, line in enumerate(p.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
-            if line.lstrip().startswith("#"):
-                continue
-            if pat.search(line):
-                hits.append(f"{p.relative_to(ROOT)}:{i}: {line.strip()[:80]}")
-    check("only run_detection.py / evaluate.py (and diagnostics) reference the truth file", not hits,
-          f"{len(hits)} hit(s)" if hits else "")
-    for h in hits:
-        print("   ", h)
-
-    # ------------------------------------------------------------------ 7. plot
-    head("7. C1 plot")
-    png = exp / "c1_tradeoff.png"
-    check("c1_tradeoff.png exists", png.exists())
-    sweeps_mtime = max([p.stat().st_mtime for p in exp.glob("detection_sweep_*.csv")] or [0])
-    if png.exists() and png.stat().st_mtime < sweeps_mtime:
-        warn("c1_tradeoff.png is older than the latest sweep CSV", "re-run analytics.detection.plot_tradeoff")
-
-    print(f"\n{sum(results)}/{len(results)} checks passed, {len(warns)} warning(s)")
-    raise SystemExit(0 if all(results) else 1)
+    if all(results):
+        print("\nALL CHECKS PASSED")
+        sys.exit(0)
+    print("\nSOME CHECKS FAILED")
+    sys.exit(1)
 
 
 if __name__ == "__main__":

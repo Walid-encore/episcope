@@ -34,7 +34,7 @@ def _artefact_row(alerts, art):
 
 
 def test_artefact_flag_is_set_only_on_the_backfill_week(cases, artefact):
-    d = add_artefact_flag_pandas(cases)
+    d = add_artefact_flag_pandas(cases, backfill_weeks=1)
     flagged = d[d.reporting_artefact_flag]
     assert len(flagged) == 1
     r = flagged.iloc[0]

@@ -4,7 +4,7 @@
                                      cases, late_cases_ge8d, reporting_completeness
 
 Works with:
-  * the stand-in tables (data/standin_gold/*.csv), and
+  * the exported gold tables (data/gold_csv/*.csv), and
   * the Data Engineer's real gold lake (data/gold/<table>/report_epi_year=…/report_epi_week=…/part-*.parquet),
     or the same tables exported as CSV with the same column names.
 
@@ -19,7 +19,7 @@ REPORT_KEYS = ["district_code", "report_epi_year", "report_epi_week"]
 
 
 def _read(g, name):
-    """Read one gold table from CSV (stand-in) or hive-partitioned Parquet (real gold)."""
+    """Read one gold table from the exported CSV or hive-partitioned Parquet gold."""
     csv = g / f"{name}.csv"
     if csv.exists():
         return pd.read_csv(csv, dtype={"district_code": str})

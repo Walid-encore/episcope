@@ -96,7 +96,7 @@ def main():
 
     if a.evaluate:
         if TRUTH.exists():
-            step("detection evaluation (AN-2)", ["analytics.detection.run_detection", "--gold", str(gold)],
+            step("detection evaluation (AN-2)", ["analytics.detection.run_detection", "--gold", str(gold), "--run-id", str(a.run_id)],
                  timings)
         else:
             print(f"\n--evaluate skipped: {TRUTH} not found")

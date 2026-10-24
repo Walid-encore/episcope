@@ -1,7 +1,7 @@
 """SEIR epidemic scenario module (AN-10): calibrate on the national flu-like-illness (ILI) surge,
 then run what-if intervention scenarios.
 
-    python -m analytics.scenario.seir --series data/standin_gold/national_weekly_ili.csv [--sf 0.05]
+    python -m analytics.scenario.seir --series data/analytics/national_weekly_ili.csv [--sf 0.05]
 
 Model: S -> E -> I -> R, national population N, latent period 3 days, infectious period 5 days
 (fixed assumptions). Weekly reported ILI = baseline + rho * new symptomatic infections.
@@ -149,7 +149,7 @@ def bed_capacity(path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--series", default=str(ROOT / "data" / "standin_gold" / "national_weekly_ili.csv"))
+    ap.add_argument("--series", default=str(ROOT / "data" / "analytics" / "national_weekly_ili.csv"))
     ap.add_argument("--districts", default=str(ROOT / "data" / "reference" / "districts.csv"))
     ap.add_argument("--facilities", default=str(ROOT / "data" / "reference" / "facilities.csv"))
     ap.add_argument("--start")

@@ -1,7 +1,7 @@
 """Sensitivity analysis of the EARS baseline (AN-2, AN-3, conflict C1). Reads ground truth, so it lives in
 analytics/ and NOT in analytics/detection/.
 
-    python -m analytics.compare_baselines [--gold data/standin_gold] [--max-fa 0.5] [--grace 14]
+    python -m analytics.compare_baselines [--gold data/gold_csv] [--max-fa 0.5] [--grace 14]
 
 Why: the current baseline (7 weeks ending 3 weeks before the scored week, at least 5 usable weeks) leaves
 weeks unscored where reporting is patchy. This compares ways of closing that gap at the same evaluation

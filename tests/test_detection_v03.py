@@ -14,7 +14,7 @@ def _series(completeness):
 
 def test_completeness_flags_only_first_full_week_after_silence():
     df = add_artefact_flag_pandas(_series([None, 1.0, 0.5, 0.5, 1.0, 1.0]))
-    assert df["reporting_artefact_flag"].tolist() == [False, False, False, False, True, False]
+    assert df["reporting_artefact_flag"].tolist() == [False, False, False, False, True, True]
     assert df["_under"].tolist() == [False, False, True, True, False, False]
 
 
@@ -27,7 +27,7 @@ def test_legacy_facility_counts_still_work():
     df = _series([1.0] * 4).drop(columns="reporting_completeness")
     df["expected_facilities"] = 10
     df["reporting_facilities"] = [10, 5, 10, 10]
-    assert add_artefact_flag_pandas(df)["reporting_artefact_flag"].tolist() == [False, False, True, False]
+    assert add_artefact_flag_pandas(df)["reporting_artefact_flag"].tolist() == [False, False, True, True]
 
 
 def test_window_grace_counts_late_report_week_as_in_window():
@@ -99,3 +99,11 @@ def test_context_shows_alert_already_firing_before_outbreak():
                            "alert_flag": flag})
     out = per_outbreak_context(alerts, _truth()).iloc[0]
     assert out["pre_alert_weeks"] == 2
+
+
+def test_backfill_weeks_parameter_and_default():
+    s = [None, 1.0, 0.5, 0.5, 1.0, 1.0]
+    one = add_artefact_flag_pandas(_series(s), backfill_weeks=1)["reporting_artefact_flag"].tolist()
+    assert one == [False, False, False, False, True, False]
+    two = add_artefact_flag_pandas(_series(s))["reporting_artefact_flag"].tolist()
+    assert two == [False, False, False, False, True, True]

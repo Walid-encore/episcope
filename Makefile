@@ -15,7 +15,7 @@ gold:
 test:
 	python -m pytest -q
 
-GOLD ?= data/standin_gold
+GOLD ?= data/gold_csv
 
 # Everything the Ministry run needs. Reads NO ground truth, so it also works on the hidden test drop.
 .PHONY: analytics
