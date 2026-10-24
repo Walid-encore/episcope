@@ -98,6 +98,29 @@ def week_date(year, week):
     return dt.date.fromisocalendar(year, week, 1)
 
 
+def season_date(year, week, onset_week):
+    """Monday of `week` in the season that starts at `onset_week` of `year`: a smaller week number is next year."""
+    return week_date(year + (1 if week < onset_week else 0), week)
+
+
+def lead_date(year, week, onset_week):
+    """Monday of an action week counted back from the onset: a larger week number wrapped into the previous year."""
+    return week_date(year - (1 if week > onset_week else 0), week)
+
+
+LOW_VOLUME = 5.0  # mean weekly cases per division below this: flag the series as low volume
+
+
+def circ_offset(week, centre):
+    """Signed distance in weeks from `centre` to `week` on the 52-week circle (-26..25)."""
+    return (week - centre + WEEKS // 2) % WEEKS - WEEKS // 2
+
+
+def unwrapped_date(year, u):
+    """Monday of week number `u` counted from week 1 of `year`; u < 1 is the previous year, u > 52 the next."""
+    return week_date(year + (u - 1) // WEEKS, (u - 1) % WEEKS + 1)
+
+
 def build_calendar(cases, districts, year, frac, min_amp, lead_supplies, lead_campaign,
                    min_strength=0.5):
     d = cases.merge(districts[["district_code", "division", "population"]], on="district_code")
@@ -109,22 +132,30 @@ def build_calendar(cases, districts, year, frac, min_amp, lead_supplies, lead_ca
         idx, strength = seasonal_index(s.set_index("week_start_date")["incidence"], min_strength)
         w = season_window(idx, frac, min_amp)
         row = dict(division=div, disease=dis, seasonal_strength=round(strength, 3),
-                   peak_index=round(w["peak_index"], 2), clear_season=w["clear"])
+                   peak_index=round(w["peak_index"], 2), clear_season=w["clear"],
+                   mean_weekly_cases=round(float(s["cases"].mean()), 1),
+                   low_volume=bool(s["cases"].mean() < LOW_VOLUME))
         if w["clear"]:
             sup, cam = shift_week(w["onset"], -lead_supplies), shift_week(w["onset"], -lead_campaign)
             row.update(onset_week=w["onset"], peak_week=w["peak"], end_week=w["end"],
                        prepose_supplies_week=sup, start_campaign_week=cam,
-                       onset_date=week_date(year, w["onset"]), peak_date=week_date(year, w["peak"]),
-                       prepose_supplies_date=week_date(year, sup), start_campaign_date=week_date(year, cam))
+                       onset_date=week_date(year, w["onset"]), peak_date=season_date(year, w["peak"], w["onset"]),
+                       end_date=season_date(year, w["end"], w["onset"]),
+                       prepose_supplies_date=lead_date(year, sup, w["onset"]),
+                       start_campaign_date=lead_date(year, cam, w["onset"]))
         if w["clear"]:
             yw = yearly_windows(s.set_index("week_start_date")["incidence"], frac, min_amp)
             if yw:
-                early = min(x["onset"] for x in yw)
+                on, pk = w["onset"], w["peak"]
+                off_on = [circ_offset(x["onset"], on) for x in yw]
+                off_pk = [circ_offset(x["peak"], pk) for x in yw]
+                e_off = min(min(off_on), 0)  # earliest onset, in weeks relative to the calendar onset (<= 0)
+                early = shift_week(on, e_off)
                 sup_e = shift_week(early, -lead_supplies)
-                row.update(n_years_clear=len(yw), peak_week_earliest=min(x["peak"] for x in yw),
-                           peak_week_latest=max(x["peak"] for x in yw), onset_week_earliest=early,
+                row.update(n_years_clear=len(yw), peak_week_earliest=shift_week(pk, min(off_pk)),
+                           peak_week_latest=shift_week(pk, max(off_pk)), onset_week_earliest=early,
                            prepose_supplies_week_early=sup_e,
-                           prepose_supplies_date_early=week_date(year, sup_e))
+                           prepose_supplies_date_early=unwrapped_date(year, on + e_off - lead_supplies))
         cal.append(row)
         prof += [dict(division=div, disease=dis, epi_week=k, seasonal_index=round(float(v), 3))
                  for k, v in idx.items()]
