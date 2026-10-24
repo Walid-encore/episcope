@@ -105,3 +105,9 @@ run_at,stage,engine,seconds,rows,series
 2026-10-24T12:56:55,detection_ears_c2,spark,26.07,67072,256
 2026-10-24T13:04:48,detection_ears_c2,spark,29.14,67072,256
 2026-10-24T13:07:32,forecast,spark,162.63,66560,256
+2026-10-24T13:21:00,detection_ears_c2,spark,31.57,67072,256
+2026-10-24T13:23:32,forecast,spark,150.3,66560,256
+2026-10-24T13:26:49,detection_ears_c2,spark,26.08,67072,256
+2026-10-24T13:29:24,forecast,spark,153.67,66560,256
+2026-10-24T13:37:48,detection_ears_c2,spark,30.78,67072,256
+2026-10-24T13:39:42,forecast,spark,112.38,66560,256
