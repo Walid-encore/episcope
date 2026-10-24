@@ -2,6 +2,7 @@
 
 all:
 	python -m pipeline.run_all
+	$(MAKE) analytics-real
 
 bronze:
 	python -m pipeline.run_all --only bronze
@@ -20,10 +21,7 @@ GOLD ?= data/gold_csv
 # Everything the Ministry run needs. Reads NO ground truth, so it also works on the hidden test drop.
 .PHONY: analytics
 analytics:
-	python -m analytics.detection.make_alerts --gold $(GOLD)
-	python -m analytics.optimise.run_demand --cases $(GOLD)/gold_weekly_cases.csv
-	python -m analytics.optimise.run_allocation
-	python -m analytics.calendar.preparedness --gold $(GOLD)
+	python -m analytics.run_all --gold $(GOLD)
 
 # Needs data/truth (ground-truth outbreaks): evaluation for the report, not part of the delivery run.
 .PHONY: evaluate

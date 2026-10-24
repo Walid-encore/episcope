@@ -8,7 +8,8 @@ code never read data/truth; --evaluate runs the ground-truth evaluation (run_det
 skipped when the truth file is not present.
 
 Outputs (data/analytics): gold_alerts.parquet, gold_forecast.parquet, gold_demand.parquet,
-planning_totals.parquet, allocation/, preparedness_calendar.csv, seasonal_profile.csv,
+planning_totals.parquet, allocation/, allocation_peak*/, allocation_sensitivity/,
+preparedness_calendar.csv, seasonal_profile.csv,
 run_all_timing.csv.
 """
 import argparse
@@ -50,6 +51,8 @@ def main():
     ap.add_argument("--run-id", default=None)
     ap.add_argument("--trim-last-weeks", default=None)
     ap.add_argument("--budget-frac", default=None)
+    ap.add_argument("--skip-scenarios", action="store_true",
+                    help="skip the peak-season allocation scenarios and sensitivity (about 1-2 minutes)")
     ap.add_argument("--evaluate", action="store_true",
                     help="also run the ground-truth evaluation (needs data/truth)")
     a = ap.parse_args()
@@ -89,6 +92,15 @@ def main():
         args += ["--budget-frac", str(a.budget_frac)]
     step("allocation (AN-7, AN-8)", args, timings)
     need(OUT / "allocation" / "recommendation.json")
+
+    if not a.skip_scenarios:
+        # peak-season demand rebuilt from THIS run's backtest, then severity / coverage-floor / equal-weight
+        # allocations and the transport, cost and weight sensitivity (docs/allocation_assumptions.md)
+        step("allocation scenarios + sensitivity (AN-7, AN-8)",
+             ["analytics.optimise.run_scenarios", "--gold", str(gold), "--analytics", str(OUT), "--refresh"],
+             timings)
+        need(OUT / "allocation_peak" / "recommendation.json")
+        need(OUT / "allocation_sensitivity" / "transport.csv")
 
     step("preparedness calendar (AN-9)",
          ["analytics.calendar.preparedness", "--gold", str(gold), "--out", str(OUT)], timings)
