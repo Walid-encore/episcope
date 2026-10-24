@@ -11,18 +11,27 @@ Models (per district x disease, horizons 1-4 weeks, direct strategy = one fit pe
                      Interpretable by design (5 coefficients), which answers conflict C5.
                      Intervals are NB quantiles; coefficient uncertainty is ignored (stated limitation).
 No leakage: weather lags are >= 4 weeks and horizons are <= 4, so every feature exists at the origin.
+
+Evaluation-only variants (models=ABLATION_MODELS; the production run uses DEFAULT_MODELS and is unchanged):
+  persistence            point = cases at the origin week; interval from that rule's past h-week errors
+  nb_no_weather          same GLM without the weather terms (seasonal + last count): the weather ablation
+  nb_weather_short       same GLM with weather averaged over weeks T-h..T-h-3 (shortest lags known at the origin)
+  nb_lagged_weather_cal  nb_lagged_weather with the dispersion alpha scaled so that the IN-SAMPLE 80% interval
+                         coverage is 0.80 (uses training rows only, no look-ahead)
+
 Backtest: for each of the last `n_backtest` target weeks and each horizon, refit using only data up to the
 origin (origin = target - horizon) and predict. Origin = last observed week gives the live forecast rows.
 Input per series needs: district_code, disease, week_start_date, cases, precip_sum_mm, temp_mean_c
 (weeks contiguous). Pandas runs locally; run_spark trains one model set per district x disease in parallel.
 
-Not stored: diagnostics of failed fits (rows are skipped). Compare models only on rows both produced
+Not stored: diagnostics of failed fits (rows are skipped). Compare models only on rows all models produced
 (summarise does this).
 """
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy.stats import nbinom
 
 from .metrics import covered, mae, nb_quantiles, wis
 
@@ -37,6 +46,10 @@ SPARK_SCHEMA = ("district_code string, disease string, origin_epi_year int, orig
                 "model string, pred_mean double, q10 double, q50 double, q90 double, "
                 "is_backtest boolean, actual_cases double")
 SEASON = 52
+DEFAULT_MODELS = ("seasonal_naive", "nb_lagged_weather")
+ABLATION_MODELS = DEFAULT_MODELS + ("persistence", "nb_no_weather", "nb_weather_short",
+                                    "nb_lagged_weather_cal")
+CAL_GRID = np.arange(0.3, 1.001, 0.1)       # candidate multipliers for the NB dispersion alpha
 
 
 # ------------------------------------------------------------------ negative-binomial GLM (IRLS)
@@ -67,6 +80,20 @@ def fit_nb(X, y, iters=30, alpha_rounds=3, ridge=1e-4):
     return beta, alpha
 
 
+def _calibrated_alpha(eta, y, alpha, target=0.8):
+    """Scale alpha by the grid multiplier whose in-sample 10-90% interval coverage is closest to `target`."""
+    mu = np.exp(np.clip(eta, -20, 20))
+    best, gap = alpha, np.inf
+    for m in CAL_GRID:
+        a = alpha * float(m)
+        r, p = 1.0 / a, 1.0 / (1.0 + a * mu)
+        lo, hi = nbinom.ppf(0.1, r, p), nbinom.ppf(0.9, r, p)
+        g = abs(float(np.mean((y >= lo) & (y <= hi))) - target)
+        if g < gap:
+            best, gap = a, g
+    return best
+
+
 # ------------------------------------------------------------------ feature frame for one series
 def make_frame(series, extra=max(HORIZONS)):
     s = series.sort_values("week_start_date").copy()
@@ -80,6 +107,11 @@ def make_frame(series, extra=max(HORIZONS)):
         stack = np.column_stack([f[col].shift(L).to_numpy() for L in range(4, 9)])
         m = stack.mean(axis=1)
         f[name] = np.log1p(m) if name == "rain" else m
+        # shortest lags that exist at the origin for horizon h: weeks T-h .. T-h-3
+        for h in range(1, extra + 1):
+            st = np.column_stack([f[col].shift(L).to_numpy() for L in range(h, h + 4)])
+            ms = st.mean(axis=1)
+            f[f"{name}_s{h}"] = np.log1p(ms) if name == "rain" else ms
     ang = 2 * np.pi * idx.dayofyear.to_numpy() / 365.25
     f["sin"], f["cos"] = np.sin(ang), np.cos(ang)
     iso = idx.isocalendar()
@@ -87,18 +119,30 @@ def make_frame(series, extra=max(HORIZONS)):
     return f, n
 
 
-def _design(f, cases, positions, h):
-    """Rows of [sin, cos, rain, temp, log1p(cases[p-h])] for the given positions (NaN if unavailable)."""
+def _weather_cols(weather, h):
+    if weather == "lag48":
+        return ["rain", "temp"]
+    if weather == "short":
+        return [f"rain_s{h}", f"temp_s{h}"]
+    if weather == "none":
+        return []
+    raise ValueError(f"unknown weather feature set: {weather}")
+
+
+def _design(f, cases, positions, h, weather="lag48"):
+    """Rows of [sin, cos, <weather columns>, log1p(cases[p-h])] for the given positions (NaN if unavailable)."""
     last = np.full(len(positions), np.nan)
     ok = positions - h >= 0
     last[ok] = np.log1p(cases[positions[ok] - h])
-    return np.column_stack([f["sin"].to_numpy()[positions], f["cos"].to_numpy()[positions],
-                            f["rain"].to_numpy()[positions], f["temp"].to_numpy()[positions], last])
+    cols = [f["sin"].to_numpy()[positions], f["cos"].to_numpy()[positions]]
+    cols += [f[c].to_numpy()[positions] for c in _weather_cols(weather, h)]
+    cols.append(last)
+    return np.column_stack(cols)
 
 
-def _nb_forecast(f, cases, o, h, min_train):
+def _nb_forecast(f, cases, o, h, min_train, weather="lag48", calibrate=False):
     pos = np.arange(0, o + 1)
-    X = _design(f, cases, pos, h)
+    X = _design(f, cases, pos, h, weather)
     y = cases[pos]
     ok = ~np.isnan(X).any(axis=1) & ~np.isnan(y)
     if ok.sum() < min_train:
@@ -106,11 +150,15 @@ def _nb_forecast(f, cases, o, h, min_train):
     X, y = X[ok], y[ok]
     mean, std = X[:, 2:].mean(axis=0), X[:, 2:].std(axis=0)
     std[std < 1e-9] = 1.0
+
     def prep(M):
         M = M.copy(); M[:, 2:] = (M[:, 2:] - mean) / std
         return np.column_stack([np.ones(len(M)), M])
-    beta, alpha = fit_nb(prep(X), y)
-    xt = _design(f, cases, np.array([o + h]), h)
+    Xs = prep(X)
+    beta, alpha = fit_nb(Xs, y)
+    if calibrate:
+        alpha = _calibrated_alpha(Xs @ beta, y, alpha)
+    xt = _design(f, cases, np.array([o + h]), h, weather)
     if np.isnan(xt).any():
         return None
     mu = float(np.exp(np.clip(prep(xt) @ beta, -20, 20))[0])
@@ -134,14 +182,60 @@ def _naive_forecast(cases, o, h, min_resid=20):
     return float(point), max(0.0, point + lo), float(point), max(0.0, point + hi)
 
 
+def _persistence_forecast(cases, o, h, min_resid=20):
+    """Point = count at the origin week; interval = point + 10th/90th percentile of past h-week changes."""
+    if o - h < 0:
+        return None
+    pos = np.arange(h, o + 1)
+    err = cases[pos] - cases[pos - h]
+    err = err[~np.isnan(err)]
+    point = cases[o]
+    if len(err) < min_resid or np.isnan(point):
+        return None
+    lo, hi = np.percentile(err, [10, 90])
+    return float(point), max(0.0, point + lo), float(point), max(0.0, point + hi)
+
+
+def _asof_cases(cases, asof, o):
+    """Counts as they were KNOWN at origin week o.
+
+    asof[w, k] = cases of onset week w that had been reported within k weeks (cumulative over report lag,
+    last column = final). A week w <= o has had o - w weeks to report, so only asof[w, min(o - w, K)] is
+    visible at the origin; weeks older than K weeks are complete. Weeks after o are never read."""
+    c = np.array(cases, dtype=float)
+    K = asof.shape[1] - 1
+    for w in range(max(0, o - K + 1), o + 1):
+        c[w] = asof[w, min(o - w, K)]
+    return c
+
+
+def _runners(f, cases, min_train):
+    return {
+        "seasonal_naive": lambda o, h: _naive_forecast(cases, o, h),
+        "nb_lagged_weather": lambda o, h: _nb_forecast(f, cases, o, h, min_train),
+        "persistence": lambda o, h: _persistence_forecast(cases, o, h),
+        "nb_no_weather": lambda o, h: _nb_forecast(f, cases, o, h, min_train, weather="none"),
+        "nb_weather_short": lambda o, h: _nb_forecast(f, cases, o, h, min_train, weather="short"),
+        "nb_lagged_weather_cal": lambda o, h: _nb_forecast(f, cases, o, h, min_train, calibrate=True),
+    }
+
+
 # ------------------------------------------------------------------ one series: backtest + live forecast
-def forecast_series(series, horizons=HORIZONS, n_backtest=52, min_train=52):
+def forecast_series(series, horizons=HORIZONS, n_backtest=52, min_train=52, models=DEFAULT_MODELS):
+    unknown = set(models) - set(ABLATION_MODELS)
+    if unknown:
+        raise ValueError(f"unknown models: {sorted(unknown)}")
     f, n = make_frame(series, extra=max(horizons))
     cases = f["cases"].to_numpy()
+    # optional as-of mode: columns cum_lag0..cum_lagK (cumulative counts by report lag) make every origin see
+    # only the reports that had arrived by then; actual_cases stay the final counts
+    acols = sorted((c for c in series.columns if c.startswith("cum_lag")), key=lambda c: int(c[7:]))
+    asof = series.sort_values("week_start_date")[acols].to_numpy(float) if acols else None
     dist, dis = series["district_code"].iloc[0], series["disease"].iloc[0]
     back_targets = set(range(n - n_backtest, n))
     origins = sorted({t - h for t in back_targets for h in horizons} | {n - 1})
     rows = []
+    run, run_o = None, None
     for o in origins:
         if o < 0:
             continue
@@ -150,8 +244,11 @@ def forecast_series(series, horizons=HORIZONS, n_backtest=52, min_train=52):
             is_back = t in back_targets
             if not (is_back or o == n - 1):
                 continue
-            for model, res in (("seasonal_naive", _naive_forecast(cases, o, h)),
-                               ("nb_lagged_weather", _nb_forecast(f, cases, o, h, min_train))):
+            if run_o != o:
+                run, run_o = _runners(f, cases if asof is None else _asof_cases(cases, asof, o),
+                                      min_train), o
+            for model in models:
+                res = run[model](o, h)
                 if res is None:
                     continue
                 mean, q10, q50, q90 = res
@@ -182,7 +279,7 @@ def run_spark(sdf, **kw):
 
 # ------------------------------------------------------------------ scoring
 def score_rows(fc):
-    """Backtest rows with both models present, plus per-row abs_error, covered_80 and wis."""
+    """Backtest rows with all models present, plus per-row abs_error, covered_80 and wis."""
     b = fc[fc["is_backtest"]].copy()
     key = KEYS + ["origin_epi_year", "origin_epi_week", "horizon_weeks"]
     n_models = b["model"].nunique()
@@ -194,8 +291,10 @@ def score_rows(fc):
 
 
 def summarise(fc):
-    """MAE, 80% coverage, mean WIS per model, overall and per horizon, plus WIS ratio vs seasonal_naive."""
+    """MAE, 80% coverage, mean WIS per model, overall and per horizon, plus WIS ratio vs seasonal_naive
+    (and vs persistence when that model is present)."""
     b = score_rows(fc)
+
     def agg(g):
         return pd.Series(dict(n=len(g), mae=g["abs_error"].mean(),
                               coverage_80=g["covered_80"].mean(), wis=g["wis"].mean()))
@@ -204,8 +303,10 @@ def summarise(fc):
     per_h = b.groupby(["model", "horizon_weeks"]).apply(agg, include_groups=False).reset_index()
     per_h["horizon_weeks"] = per_h["horizon_weeks"].astype(str)
     out = pd.concat([overall, per_h], ignore_index=True)
-    base = out[out["model"] == "seasonal_naive"].set_index("horizon_weeks")["wis"]
-    out["wis_ratio_vs_naive"] = out.apply(lambda r: r["wis"] / base.get(r["horizon_weeks"], np.nan), axis=1)
+    for ref, col in (("seasonal_naive", "wis_ratio_vs_naive"), ("persistence", "wis_ratio_vs_persistence")):
+        if ref in set(out["model"]):
+            base = out[out["model"] == ref].set_index("horizon_weeks")["wis"]
+            out[col] = out.apply(lambda r: r["wis"] / base.get(r["horizon_weeks"], np.nan), axis=1)
     return out
 
 
