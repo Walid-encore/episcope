@@ -8,7 +8,7 @@ Source tables: `docs/gold_contract.md`.
 
 - Output folder: `serving/data/`. Hand-made samples with identical shape live in `serving/sample/`. The dashboard reads from one configurable base path, so swapping sample for real needs no code change.
 - Dashboard is static D3 v7, served with `python -m http.server`.
-- Total size of all files in `serving/data/` is under 10 MB (VIS-4). Budget: cases_weekly < 5 MB, everything else < 5 MB combined.
+- Total size of all files in `serving/data/` is under 10 MB (VIS-4). Budget: cases_weekly < 6 MB, everything else < 4 MB combined.
 - Everything is aggregated. No patient-level data, no hashed ids, no facility-level rows.
 - **Geography key is `district_code`**: a 2-digit string "01".."64" (never "BD-01", never a number). It equals the `district_code` property in `serving/geo/bgd_adm2_simplified_coded.geojson`.
 - **Privacy (PRV-2):** any count of 1-4 is suppressed. Complementary suppression is applied so suppressed cells cannot be recovered from totals by subtraction. A suppressed count is written as `null` with `"suppressed": true`; its `incidence_per_100k` is also `null`. A true zero is written as `0` with `"suppressed": false`. Never write 0 for a suppressed cell.
