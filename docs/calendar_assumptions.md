@@ -1,4 +1,4 @@
-# Preparedness calendar assumptions (AN-9)
+﻿# Preparedness calendar assumptions (AN-9)
 
 Method (analytics/calendar/preparedness.py): weekly incidence per division x disease, STL decomposition
 (period 52), seasonal index per epi-week, high season = weeks above the season threshold. Divisions with a
@@ -39,5 +39,6 @@ season distorting the STL profile; this has not been tested.
   so `prepose_supplies_date_early` is never later than `prepose_supplies_date`.
 - The calendar peak and onset come from the multi-year seasonal profile, the earliest/latest columns from the
   individual years. The calendar peak can therefore lie outside the range of yearly peaks (on the real gold
-  data: Chattogram and Mymensingh malaria). This reflects year-to-year variation in the peak and is
+  data: Chattogram malaria, Mymensingh malaria and Mymensingh diarrhoeal). This reflects year-to-year variation in the peak and is
   reported by `check_an9_ranges` as a note, not an error.
+
