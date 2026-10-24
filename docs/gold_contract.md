@@ -170,6 +170,12 @@ Check value: district 30, report week starting 2022-04-18 gives 0.7216 (8 of 11 
 ### gold_eval_metrics (run x metric)
 run_id, component (`detection`/`forecast`/`optimiser`), metric (`sensitivity`, `false_alerts_per_district_year`, `median_days_to_detect`, `mae`, `coverage_80`, `wis`), value, model_or_detector, threshold (null unless for the trade-off curve).
 
+Details (as written by `analytics/eval_metrics.py`):
+- `run_id` equals the `run_id` of `gold_alerts` for the same run. Rows of different runs are kept, so the table is a history. Re-running a stage replaces only that run's rows for that `component`.
+- `forecast` metrics are `mae`, `coverage_80`, `wis` and `wis_ratio_vs_naive` (model WIS divided by the seasonal-naive WIS at the same horizon; written for the non-baseline model only).
+- A metric name without a suffix covers all horizons. The suffix `_h1` to `_h4` gives the horizon in weeks, for example `wis_h2` or `wis_ratio_vs_naive_h4`.
+- `threshold` is null for `forecast` rows.
+
 ### gold_dq_report (batch x rule)
 Contract columns: batch_id, rule_id, reason_code (matches the quarantine table), rows_checked, rows_failed, pass_rate, run_ts.
 Added columns: dataset, severity (`error` or `warn`), description, rows_in, rows_quarantined.

@@ -53,6 +53,8 @@ def main():
     ap.add_argument("--evaluate", action="store_true",
                     help="also run the ground-truth evaluation (needs data/truth)")
     a = ap.parse_args()
+    if a.run_id is None:  # unique id per run => gold_eval_metrics keeps one set of rows per run
+        a.run_id = time.strftime("run_%Y%m%d_%H%M%S")
 
     gold = Path(a.gold).resolve()
     cases = gold / "gold_weekly_cases.csv"
@@ -74,7 +76,7 @@ def main():
     for f in ("gold_forecast.parquet", "gold_demand.parquet", "planning_totals.parquet"):
         need(OUT / f)
 
-    step("forecast backtest summary (AN-5)", ["analytics.forecast.backtest_report", "--out", str(OUT)],
+    step("forecast backtest summary (AN-5)", ["analytics.forecast.backtest_report", "--out", str(OUT), "--run-id", str(a.run_id)],
          timings)
     need(OUT / "forecast_backtest.csv")
 
