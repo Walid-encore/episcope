@@ -81,6 +81,8 @@ def main():
     need(cases)
     OUT.mkdir(parents=True, exist_ok=True)
     timings = []
+    step("input provenance", ["analytics.check_inputs", "--gold", str(gold)], timings)
+    need(OUT / "input_provenance.json")
 
     args = ["analytics.detection.make_alerts", "--gold", str(gold), "--engine", a.engine]
     for flag, val in (("--threshold", a.threshold), ("--min-cases", a.min_cases), ("--run-id", a.run_id)):

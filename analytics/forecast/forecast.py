@@ -322,22 +322,9 @@ def to_eval_metrics(summary, run_id):
 
 
 def main():
-    """Backtest on the tests/fixtures cases with the real weekly weather (prototype run)."""
-    from .features import build_weekly_weather
-    fix = ROOT / "tests" / "fixtures" / "gold_weekly_cases_fixture.csv"
-    cases = pd.read_csv(fix, dtype={"district_code": str})
-    wx = build_weekly_weather(pd.read_csv(ROOT / "data" / "reference" / "weather.csv", dtype={"district_code": str}))
-    cases["week_start_date"] = pd.to_datetime(cases["week_start_date"])
-    wx = wx[["district_code", "week_start_date", "precip_sum_mm", "temp_mean_c"]]
-    table = cases.merge(wx, on=["district_code", "week_start_date"], how="left")
-    fc = run_pandas(table)
-    s = summarise(fc)
-    pd.set_option("display.width", 200)
-    print(s.round(3).to_string(index=False))
-    out = ROOT / "docs" / "experiments"
-    out.mkdir(parents=True, exist_ok=True)
-    s.to_csv(out / "forecast_backtest_fixture.csv", index=False)
-    print(f"wrote {out / 'forecast_backtest_fixture.csv'}")
+    raise SystemExit("analytics.forecast.forecast has no stand-alone run (the old prototype run was removed). "
+                     "Use `python -m analytics.optimise.run_demand` (forecast + demand) and "
+                     "`python -m analytics.forecast.backtest_report` (backtest summary) on the real gold.")
 
 
 if __name__ == "__main__":
