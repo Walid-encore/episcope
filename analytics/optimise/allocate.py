@@ -42,8 +42,8 @@ def _wts(df, weights):
     return weights
 
 
-def solve_allocation(demand, pop, costs, budget, alpha=0.0, weights=None,
-                     vol=None, caps=None, min_cover=0.0):
+def _solve(demand, pop, costs, budget, alpha=0.0, weights=None,
+                     vol=None, caps=None, min_cover=0.0, cover_scale=1.0):
     """Return demand frame with columns x (allocation) and unmet.
     out.attrs["min_cover_used"] is the coverage floor actually applied (after the half-budget cap)."""
     df = _check(demand)
@@ -65,7 +65,7 @@ def solve_allocation(demand, pop, costs, budget, alpha=0.0, weights=None,
     need_cost = float((need_pos * df["resource"].map(costs).to_numpy()).sum())
     cover = 0.0
     if min_cover > 0 and need_cost > 0:
-        cover = min(float(min_cover), 0.5 * budget / need_cost)
+        cover = cover_scale * min(float(min_cover), 0.5 * budget / need_cost)
         for k, nd in zip(keys, need_pos):
             if nd > 0:
                 prob += x[k] >= cover * float(nd)
@@ -82,6 +82,20 @@ def solve_allocation(demand, pop, costs, budget, alpha=0.0, weights=None,
     out["unmet"] = np.maximum(out["demand"] - out["stock"] - out["x"], 0.0)
     out.attrs["min_cover_used"] = cover
     return out
+
+
+def solve_allocation(demand, pop, costs, budget, alpha=0.0, weights=None,
+                     vol=None, caps=None, min_cover=0.0):
+    """Solve with the coverage floor. The floor, the equity floor alpha and the transport caps can together
+    be infeasible (alpha pushes every district up when the floor raises the total). If so, the coverage floor is
+    halved until the model is feasible, ending at 0 (= model without the floor, always feasible).
+    out.attrs["min_cover_used"] is the floor actually applied."""
+    for scale in (1.0, 0.5, 0.25, 0.125, 0.0625, 0.03125, 0.0):
+        try:
+            return _solve(demand, pop, costs, budget, alpha, weights, vol, caps, min_cover, scale)
+        except RuntimeError as e:
+            if "Infeasible" not in str(e) or min_cover <= 0 or scale == 0.0:
+                raise
 
 
 def proportional_baseline(demand, pop, costs, budget):
@@ -133,7 +147,8 @@ def efficiency_equity_curve(demand, pop, costs, budget_fracs=(0.1, 0.2, 0.4, 0.6
         for a in alphas:
             res = solve_allocation(df, pop, costs, B, a, weights, vol, caps, min_cover)
             rows.append({"budget_frac": f, "budget": B, "policy": "optimised", "alpha": a,
-                         **metrics(res, costs, weights)})
+                         **metrics(res, costs, weights),
+                         "min_cover_used": res.attrs.get("min_cover_used", 0.0)})
     return pd.DataFrame(rows)
 
 
