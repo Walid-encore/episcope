@@ -22,8 +22,8 @@ OI = ["#0072B2", "#E69F00", "#009E73", "#CC79A7", "#56B4E9", "#D55E00"]
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--peak", default="data/analytics/allocation_peak")
-    ap.add_argument("--floor", default="data/analytics/allocation_peak_cover25")
+    ap.add_argument("--peak", default="data/analytics/allocation_peak_nofloor")
+    ap.add_argument("--floor", default="data/analytics/allocation_peak")
     ap.add_argument("--budget-frac", type=float, default=0.6)
     ap.add_argument("--out", default=str(ROOT / "docs" / "experiments" / "c3_efficiency_equity.png"))
     a = ap.parse_args()

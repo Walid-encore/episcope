@@ -69,6 +69,8 @@ def main():
     ap.add_argument("--run-id", default=None)
     ap.add_argument("--trim-last-weeks", default=None)
     ap.add_argument("--budget-frac", default=None)
+    ap.add_argument("--min-cover", default="0.25",
+                    help="coverage floor: share of its own need every district is guaranteed (0 = off)")
     ap.add_argument("--skip-scenarios", action="store_true",
                     help="skip the peak-season allocation scenarios and sensitivity (about 1-2 minutes)")
     ap.add_argument("--evaluate", action="store_true",
@@ -107,7 +109,7 @@ def main():
     pd.read_parquet(OUT / "planning_totals.parquet").to_csv(planning_csv, index=False)
 
     args = ["analytics.optimise.run_allocation", "--demand", str(planning_csv),
-            "--out", str(OUT / "allocation"), "--cases", str(cases)]
+            "--out", str(OUT / "allocation"), "--cases", str(cases), "--min-cover", str(a.min_cover)]
     if a.budget_frac is not None:
         args += ["--budget-frac", str(a.budget_frac)]
     step("allocation (AN-7, AN-8)", args, timings)
@@ -121,7 +123,7 @@ def main():
         shutil.rmtree(OUT / "allocation_peak", ignore_errors=True)
         ok = optional_step("allocation scenarios + sensitivity (AN-7, AN-8)",
                            ["analytics.optimise.run_scenarios", "--gold", str(gold), "--analytics", str(OUT),
-                            "--refresh"], timings)
+                            "--refresh", "--min-cover", str(a.min_cover)], timings)
         if ok and not (OUT / "allocation_peak" / "recommendation.json").exists():
             print("WARNING: scenarios finished but allocation_peak/recommendation.json is missing; "
                   "serve will skip the peak file", flush=True)
