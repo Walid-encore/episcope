@@ -38,6 +38,10 @@ from analytics.optimise.weights import severity_weights, describe
 STOCK_COLS = {"iv_saline_units": "iv_saline_units", "ns1_kits": "ns1_kits",
               "ors_sachets": "ors_sachets"}
 UNIT_COSTS = {"iv_saline_units": 1.0, "ns1_kits": 3.0, "ors_sachets": 0.2}
+# Transport volume per unit (litres of vehicle space). ASSUMPTIONS, illustrative: no logistics data is available.
+BUDGET_FRACS = (0.1, 0.2, 0.4, 0.6, 0.8, 1.0)   # efficiency-equity curve and what-if grid
+ALPHAS = (0.0, 0.2, 0.4, 0.6, 0.8)
+VOLUME = {"iv_saline_units": 1.0, "ns1_kits": 0.05, "ors_sachets": 0.02}
 
 
 def latest_stock_by_district(stock_dir, facilities, max_orphan_share=0.05, as_of=None):
@@ -143,33 +147,32 @@ def load_weights(path, district_codes):
     return severity_weights(cs, district_codes)
 
 
-def main():
-    ap = argparse.ArgumentParser()
+def resolve_as_of(value):
+    """--as-of may be a date or a .json file with an "as_of" field (written by scenario_demand)."""
+    if value and str(value).lower().endswith(".json"):
+        return json.loads(Path(value).read_text(encoding="utf-8-sig"))["as_of"]
+    return value
+
+
+def add_input_args(ap):
     ap.add_argument("--demand", default="data/analytics/planning_totals.csv")
     ap.add_argument("--stock-dir", default="data/incoming/stock")
     ap.add_argument("--facilities", default="data/reference/facilities.csv")
     ap.add_argument("--districts", default="data/reference/districts.csv")
-    ap.add_argument("--out", default="data/analytics/allocation")
     ap.add_argument("--cases", default=None,
                     help="gold_weekly_cases (parquet dir/file or csv) for severity weights; "
                          "omit for equal weights")
-    ap.add_argument("--budget-frac", type=float, default=0.5,
-                    help="national budget as a share of the cost of all unmet need")
-    ap.add_argument("--tolerance", type=float, default=0.05)
     ap.add_argument("--as-of", default=None,
-                    help="date (YYYY-MM-DD): use only stock snapshots up to this date (scenario at a past date; "
-                         "pair with a --demand file built for the same origin)")
-    ap.add_argument("--min-cover", type=float, default=0.0,
-                    help="coverage floor: share of its OWN need every district is guaranteed (default 0 = off)")
-    ap.add_argument("--rule", choices=["relative", "need"], default="relative",
-                    help="how efficiency loss is measured when recommending alpha (see allocate.recommend_alpha)")
+                    help="date (YYYY-MM-DD) or a .json file with an as_of field: use only stock snapshots up to "
+                         "that date (scenario at a past date; pair with a --demand file built for the same origin)")
     ap.add_argument("--max-orphan-share", type=float, default=0.05,
                     help="stop if more than this share of stock snapshot ROWS has an unknown "
                          "facility_id (injected noise is about 0.5%%)")
-    a = ap.parse_args()
 
-    fac = pd.read_csv(a.facilities, dtype={"district_code": str, "facility_id": str},
-                      encoding="utf-8-sig")
+
+def load_scenario(a):
+    """Everything the optimiser needs: input frame, population, severity weights (or None), stock-quality numbers."""
+    fac = pd.read_csv(a.facilities, dtype={"district_code": str, "facility_id": str}, encoding="utf-8-sig")
     if "district_code" not in fac.columns:
         raise SystemExit(f"facilities.csv has no district_code; columns: {list(fac.columns)}")
     fac["district_code"] = fac["district_code"].str.zfill(2)
@@ -177,26 +180,94 @@ def main():
     dis["district_code"] = dis["district_code"].str.zfill(2)
     pop = dis.set_index("district_code")["population"]
     demand = pd.read_csv(a.demand, dtype={"district_code": str}, encoding="utf-8-sig")
-    stock, stock_quality = latest_stock_by_district(a.stock_dir, fac, a.max_orphan_share, a.as_of)
+    stock, stock_quality = latest_stock_by_district(a.stock_dir, fac, a.max_orphan_share, resolve_as_of(a.as_of))
     inp = build_input(demand, stock, dis)
-
     weights = load_weights(a.cases, sorted(inp["district_code"].unique()))
-    print("severity weights:", describe(weights) if weights is not None else "equal (no --cases)")
+    return inp, pop, weights, stock_quality
 
-    curve = efficiency_equity_curve(inp, pop, UNIT_COSTS, weights=weights, min_cover=a.min_cover)
+
+def allocation_grid(inp, pop, weights, vol=None, caps=None, min_cover=0.0):
+    """Per-district allocation for every budget level x alpha, plus the proportional baseline at each budget
+    (serving layer: what-if panel, VIS-5). One row per policy x budget_frac x alpha x district x resource."""
+    full = float(((inp["demand"] - inp["stock"]).clip(lower=0) * inp["resource"].map(UNIT_COSTS)).sum())
+    parts = []
+
+    def add(res, frac, alpha, policy):
+        part = res[["district_code", "resource", "x", "unmet"]].copy()
+        part.insert(0, "policy", policy)
+        part.insert(0, "alpha", alpha)
+        part.insert(0, "budget_frac", frac)
+        parts.append(part)
+
+    for f in BUDGET_FRACS:
+        budget = f * full
+        add(proportional_baseline(inp, pop, UNIT_COSTS, budget), f, float("nan"), "proportional")
+        for al in ALPHAS:
+            add(solve_allocation(inp, pop, UNIT_COSTS, budget, al, weights=weights, vol=vol, caps=caps,
+                                 min_cover=min_cover), f, al, "optimised")
+    grid = pd.concat(parts, ignore_index=True)
+    grid[["x", "unmet"]] = grid[["x", "unmet"]].round(3)
+    return grid.sort_values(["policy", "budget_frac", "alpha", "district_code", "resource"]
+                            ).reset_index(drop=True)
+
+
+def division_caps(inp, frac):
+    """Transport capacity T_k per division = frac x the transport volume of that division's own unmet need.
+    An ASSUMPTION used to test whether the transport constraint of Section 6.3 ever binds."""
+    need = (inp["demand"] - inp["stock"]).clip(lower=0) * inp["resource"].map(VOLUME)
+    return {k: float(frac * v) for k, v in need.groupby(inp["division"]).sum().items()}
+
+
+def transport_report(plan, vol, caps):
+    if not caps:
+        return None
+    used = (plan["x"] * plan["resource"].map(vol)).groupby(plan["division"]).sum()
+    util = {k: float(used.get(k, 0.0) / c) for k, c in caps.items() if c > 0}
+    return {"binding_divisions": sorted(k for k, u in util.items() if u >= 0.999),
+            "max_utilisation": max(util.values()) if util else 0.0}
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    add_input_args(ap)
+    ap.add_argument("--out", default="data/analytics/allocation")
+    ap.add_argument("--budget-frac", type=float, default=0.5,
+                    help="national budget as a share of the cost of all unmet need")
+    ap.add_argument("--tolerance", type=float, default=0.05)
+    ap.add_argument("--rule", choices=["relative", "need"], default="relative",
+                    help="how efficiency loss is measured when recommending alpha (see allocate.recommend_alpha)")
+    ap.add_argument("--min-cover", type=float, default=0.0,
+                    help="coverage floor: share of its OWN need every district is guaranteed (default 0 = off)")
+    ap.add_argument("--transport-frac", type=float, default=None,
+                    help="switch on the transport-capacity constraint: each division can move this share of the "
+                         "volume of its own unmet need (VOLUME assumptions); omit for no transport limit")
+    a = ap.parse_args()
+    as_of = resolve_as_of(a.as_of)
+
+    inp, pop, weights, stock_quality = load_scenario(a)
+    print("severity weights:", describe(weights) if weights is not None else "equal (no --cases)")
+    vol, caps = (VOLUME, division_caps(inp, a.transport_frac)) if a.transport_frac else (None, None)
+
+    curve = efficiency_equity_curve(inp, pop, UNIT_COSTS, budget_fracs=BUDGET_FRACS, alphas=ALPHAS,
+                                    weights=weights, vol=vol, caps=caps, min_cover=a.min_cover)
     alpha = recommend_alpha(curve, a.tolerance, a.rule)
     need = float(((inp["demand"] - inp["stock"]).clip(lower=0) * inp["resource"].map(UNIT_COSTS)).sum())
     budget = a.budget_frac * need
-    plan = solve_allocation(inp, pop, UNIT_COSTS, budget, alpha, weights=weights, min_cover=a.min_cover)
+    plan = solve_allocation(inp, pop, UNIT_COSTS, budget, alpha, weights=weights, vol=vol, caps=caps,
+                            min_cover=a.min_cover)
     base = proportional_baseline(inp, pop, UNIT_COSTS, budget)
 
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     plan.to_csv(out / "allocation_plan.csv", index=False)
     curve.to_csv(out / "efficiency_equity_curve.csv", index=False)
+    grid = allocation_grid(inp, pop, weights, vol, caps, a.min_cover)
+    grid.to_csv(out / "allocation_grid.csv", index=False)
+    print(f"wrote allocation_grid.csv: {len(grid):,} rows")
     summary = {"budget": budget, "budget_frac": a.budget_frac, "recommended_alpha": alpha,
-               "tolerance": a.tolerance, "rule": a.rule, "as_of": a.as_of, "min_cover": a.min_cover,
+               "tolerance": a.tolerance, "rule": a.rule, "as_of": as_of, "min_cover": a.min_cover,
                "min_cover_used": plan.attrs.get("min_cover_used", 0.0),
+               "transport_frac": a.transport_frac, "transport": transport_report(plan, vol, caps),
                "weights": "severity (from --cases)" if weights is not None else "equal",
                "stock_input": stock_quality,
                "optimised": metrics(plan, UNIT_COSTS, weights),
