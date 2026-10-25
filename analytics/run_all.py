@@ -13,6 +13,7 @@ preparedness_calendar.csv, seasonal_profile.csv, seir_scenarios.csv, seir_summar
 seir_fit.json (AN-10, optional), run_all_timing.csv.
 """
 import argparse
+import shutil
 import subprocess
 import sys
 import time
@@ -115,11 +116,15 @@ def main():
     if not a.skip_scenarios:
         # peak-season demand rebuilt from THIS run's backtest, then severity / coverage-floor / equal-weight
         # allocations and the transport, cost and weight sensitivity (docs/allocation_assumptions.md)
-        step("allocation scenarios + sensitivity (AN-7, AN-8)",
-             ["analytics.optimise.run_scenarios", "--gold", str(gold), "--analytics", str(OUT), "--refresh"],
-             timings)
-        need(OUT / "allocation_peak" / "recommendation.json")
-        need(OUT / "allocation_sensitivity" / "transport.csv")
+        # OPTIONAL: a failure here warns and the run continues. An older allocation_peak is removed first, so
+        # serve can never export a stale or half-written peak scenario (it skips the peak file instead).
+        shutil.rmtree(OUT / "allocation_peak", ignore_errors=True)
+        ok = optional_step("allocation scenarios + sensitivity (AN-7, AN-8)",
+                           ["analytics.optimise.run_scenarios", "--gold", str(gold), "--analytics", str(OUT),
+                            "--refresh"], timings)
+        if ok and not (OUT / "allocation_peak" / "recommendation.json").exists():
+            print("WARNING: scenarios finished but allocation_peak/recommendation.json is missing; "
+                  "serve will skip the peak file", flush=True)
 
     step("preparedness calendar (AN-9)",
          ["analytics.calendar.preparedness", "--gold", str(gold), "--out", str(OUT)], timings)

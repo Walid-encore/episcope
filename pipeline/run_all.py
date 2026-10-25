@@ -8,6 +8,7 @@
 """
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 import time
@@ -22,7 +23,7 @@ def _has_incoming():
 
 # (name, python args, skip_if) ; skip_if(args) -> reason string to skip, or None to run
 GOLD_CSV = "data/gold_csv"
-OPTIONAL = {"catalog"}  # a failure here is reported as a warning and the run continues
+OPTIONAL = {"catalog", "scenarios"}  # a failure here is reported as a warning and the run continues
 STAGES = [
     ("generate", ["-m", "generator.generate"], lambda a: None if (a.regenerate or not _has_incoming())
      else "data/incoming already exists (use --regenerate to rebuild it)"),
@@ -37,6 +38,9 @@ STAGES = [
     # --cases switches on severity weights w_d (AN-7); without it the allocation is unweighted
     ("allocate", ["-m", "analytics.optimise.run_allocation", "--cases", GOLD_CSV + "/gold_weekly_cases.csv",
                  "--min-cover", "0.25"], None),
+    # peak-week replay -> data/analytics/allocation_peak (read by serve); optional, a failure only warns
+    ("scenarios", ["-m", "analytics.optimise.run_scenarios", "--gold", GOLD_CSV, "--analytics", "data/analytics",
+                   "--refresh"], None),
     ("calendar", ["-m", "analytics.calendar.preparedness", "--gold", GOLD_CSV], None),
     ("serve",    ["-m", "pipeline.serving_export"], None),
     # evaluation needs ground truth, so it is not part of the delivery run (same rule as `make evaluate`)
@@ -83,6 +87,8 @@ def main():
             continue
         if name == "generate":
             args = args + ["--sf", str(a.sf)]
+        if name == "scenarios":  # serve must never read an older or half-written peak scenario
+            shutil.rmtree(Path("data/analytics/allocation_peak"), ignore_errors=True)
         res = run_stage(name, args, a.retries, a.wait)
         if res["status"] != "ok" and name in OPTIONAL:
             print(f"WARNING: optional stage {name} failed; continuing", flush=True)

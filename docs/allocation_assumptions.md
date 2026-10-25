@@ -29,11 +29,11 @@ Capacity T_k = kappa x (division population share) x V_need, where V_need is the
 
 | kappa | status | n_binding_divisions | binding_divisions | unconstrained_peak_load_share | weighted_unmet | unmet_vs_unconstrained_pct | coverage_min_district |
 |---|---|---|---|---|---|---|---|
-| 4.000 | optimal | 0.000 |  | 0.385 | 5304.108 | 0.000 | 0.250 |
-| 2.000 | optimal | 0.000 |  | 0.771 | 5304.108 | 0.000 | 0.250 |
-| 1.000 | optimal | 2.000 | Mymensingh;Sylhet | 1.542 | 5415.581 | 2.102 | 0.250 |
-| 0.500 | optimal | 5.000 | Barishal;Chattogram;Dhaka;Mymensingh;Sylhet | 3.083 | 5646.927 | 6.463 | 0.250 |
-| 0.250 | infeasible (RuntimeError) |  |  |  |  |  |  |
+| 4.000 | optimal | 0 |  | 0.385 | 5304.108 | 0.000 | 0.250 |
+| 2.000 | optimal | 0 |  | 0.771 | 5304.108 | 0.000 | 0.250 |
+| 1.000 | optimal | 2 | Mymensingh;Sylhet | 1.542 | 5415.581 | 2.102 | 0.250 |
+| 0.500 | optimal | 5 | Barishal;Chattogram;Dhaka;Mymensingh;Sylhet | 3.083 | 5646.927 | 6.463 | 0.250 |
+| 0.250 | optimal | 8 | Barishal;Chattogram;Dhaka;Khulna;Mymensingh;Rajshahi;Rangpur;Sylhet | 6.166 | 6069.148 | 14.424 | 0.125 |
 
 In the unconstrained plan the busiest division ships 1.54x its population share of the national need volume, so the constraint binds for every kappa below about 1.54. Rows marked infeasible are where the coverage floor alone needs more volume than the capacity allows.
 
