@@ -2,9 +2,10 @@
 
     python -m pipeline.serving_export
 
-Writes meta, freshness, cases_weekly, alerts, dq_report, stock, seasonality, calendar and forecast. Run it after the `calendar` stage: it reads the gold
+Writes meta, freshness, cases_weekly, alerts, dq_report, stock, seasonality, calendar, forecast and allocation
+(allocation.json = live run, allocation_peak.json = peak-season scenario when data/analytics/allocation_peak exists). Run it after the `calendar` stage: it reads the gold
 CSVs written by the `export` stage (data/gold_csv), data/analytics/gold_alerts.parquet and data/gold/gold_dq_report.
-No Spark needed. allocation is NOT written yet (see NOT_YET below).
+No Spark needed.
 
 Rules taken from the contract and from the visualisation engineer:
   - only the diseases in ALLOWED_DISEASES are exported (gold has four; meta lists only these)
@@ -27,10 +28,10 @@ import pandas as pd
 ALLOWED_DISEASES = ["dengue", "diarrhoeal"]
 PIPELINE_VERSION = "v1.0"
 MB = 1024 * 1024
-CASES_BUDGET, TOTAL_BUDGET = 6 * MB, 10 * MB
+CASES_BUDGET, TOTAL_BUDGET, OTHERS_BUDGET = 6_000_000, 10_000_000, 4 * MB   # total: strict decimal 10 MB; split: 4 MiB
 ALERT_WEEKS = 104
 DQ_BATCHES = 14
-NOT_YET = ["allocation.json"]
+NOT_YET = []
 
 
 def code2(s):
@@ -307,6 +308,86 @@ def build_forecast(path: Path, diseases, model: str):
     return out.sort_values(["disease", "district_code", "horizon_weeks"]).reset_index(drop=True), problems
 
 
+# ------------------------------------------------------------------ allocation (supply units, not patient counts)
+STRATEGY = {"optimised": "optimised", "proportional": "population_proportional"}
+
+
+def build_allocation(folder: Path, scenario: str, label: str, districts: pd.DataFrame, now: str, required: bool,
+                     omit_zero: bool = False, repeat_baseline: bool = False):
+    """One scenario folder -> allocation.json shape: precomputed grid (what-if, VIS-5), efficiency-equity curve
+    (C3), the recommended plan with demand, stock and allocation (VIS-2 view 4) and the recommendation itself.
+    budget_level = budget fraction x 100 (percent of the cost of the full unmet need, relative cost units).
+    The proportional baseline does not depend on alpha, so by default it is written ONCE with alpha null (rows and
+    curve). With repeat_baseline it is repeated for every alpha instead (alpha is then always a number, files are
+    about 0.65 MB larger). With omit_zero, grid rows where allocated_units and
+    unmet_demand are both 0 are left out (about 70% of rows): a missing row means 0 / 0 (no need, or no budget);
+    `plan` and meta.json list every district. Only needed if the 10 MB limit (VIS-4) is at risk."""
+    names = ["allocation_grid.csv", "allocation_plan.csv", "efficiency_equity_curve.csv", "recommendation.json"]
+    missing = [n for n in names if not (folder / n).exists()]
+    if missing:
+        if required:
+            sys.exit(f"{folder}: missing {missing}. Run the `allocate` stage (analytics.optimise.run_allocation) first")
+        return None, []
+    g = pd.read_csv(folder / "allocation_grid.csv", dtype={"district_code": str})
+    require(g, ["budget_frac", "alpha", "policy", "district_code", "resource", "x", "unmet"], f"{scenario} grid")
+    cv = pd.read_csv(folder / "efficiency_equity_curve.csv")
+    require(cv, ["budget_frac", "policy", "alpha", "weighted_unmet", "coverage_total", "coverage_min_district",
+                 "coverage_gini"], f"{scenario} curve")
+    pl = pd.read_csv(folder / "allocation_plan.csv", dtype={"district_code": str})
+    require(pl, ["district_code", "resource", "demand", "stock", "x", "unmet"], f"{scenario} plan")
+    rec = json.loads((folder / "recommendation.json").read_text(encoding="utf-8"))
+
+    def level(frac):
+        lv = (frac * 100).round(1)
+        return lv.astype(int) if (lv % 1 == 0).all() else lv
+
+    bad = sorted(set(g["policy"]) - set(STRATEGY))
+    if bad:
+        sys.exit(f"{scenario}: unknown policy values {bad}")
+    problems = []
+    g["district_code"] = code2(g["district_code"])
+    if set(g["district_code"]) != set(districts["district_code"]):
+        problems.append(f"{scenario}: grid districts differ from districts.csv")
+    alphas_all = sorted(g.loc[g["policy"] == "optimised", "alpha"].dropna().unique().tolist())
+    if repeat_baseline:
+        base = g[g["policy"] == "proportional"]
+        g = pd.concat([g[g["policy"] == "optimised"]] + [base.assign(alpha=al) for al in alphas_all],
+                      ignore_index=True)
+        cbase = cv[cv["policy"] == "proportional"]
+        cv = pd.concat([cv[cv["policy"] == "optimised"]] + [cbase.assign(alpha=al) for al in alphas_all],
+                       ignore_index=True)
+    rows = pd.DataFrame({
+        "budget_level": level(g["budget_frac"]), "alpha": g["alpha"], "strategy": g["policy"].map(STRATEGY),
+        "district_code": g["district_code"], "resource": g["resource"],
+        "allocated_units": g["x"].round(1), "unmet_demand": g["unmet"].round(1)})
+    rows = rows.sort_values(["budget_level", "strategy", "alpha", "district_code", "resource"],
+                            na_position="first").reset_index(drop=True)
+    curve = pd.DataFrame({
+        "budget_level": level(cv["budget_frac"]), "alpha": cv["alpha"], "strategy": cv["policy"].map(STRATEGY),
+        "total_unmet": cv["weighted_unmet"].round(2), "equity_gini": cv["coverage_gini"].round(4),
+        "coverage_total": cv["coverage_total"].round(4), "coverage_min_district": cv["coverage_min_district"].round(4)})
+    curve = curve.sort_values(["budget_level", "strategy", "alpha"], na_position="first").reset_index(drop=True)
+    plan = pd.DataFrame({
+        "district_code": code2(pl["district_code"]), "resource": pl["resource"], "demand": pl["demand"].round(1),
+        "stock": pl["stock"].round(1), "allocated_units": pl["x"].round(1), "unmet_demand": pl["unmet"].round(1)})
+    levels = sorted(rows["budget_level"].unique().tolist())
+    n_full = len(rows)
+    if omit_zero:
+        rows = rows[(rows["allocated_units"] != 0) | (rows["unmet_demand"] != 0)].reset_index(drop=True)
+    print(f"allocation[{scenario}]: {len(rows):,} grid rows"
+          + (f" ({n_full - len(rows):,} all-zero rows omitted)" if omit_zero else ""))
+    alphas = sorted(rows.loc[rows["strategy"] == "optimised", "alpha"].dropna().unique().tolist())
+    if len(levels) < 5 or set(rows["strategy"]) != set(STRATEGY.values()):
+        problems.append(f"{scenario}: needs >= 5 budget levels and both strategies (found {levels})")
+    obj = {"generated_at": now, "scenario": scenario, "scenario_label": label, "as_of": rec.get("as_of"),
+           "budget_unit": "percent_of_full_need", "grid_zero_rows_omitted": omit_zero,
+           "alpha_values": alphas, "budget_levels": levels, "recommendation": rec,
+           "rows": json.loads(rows.to_json(orient="records")),
+           "curve": json.loads(curve.to_json(orient="records")),
+           "plan": json.loads(plan.to_json(orient="records"))}
+    return obj, problems
+
+
 # ------------------------------------------------------------------ checks on what was written
 def validate(out: Path) -> list:
     problems, total = [], 0
@@ -317,13 +398,16 @@ def validate(out: Path) -> list:
         if "generated_at" not in obj:
             problems.append(f"{f.name}: no generated_at")
         print(f"  {f.name:<18}{size / 1024:>10,.0f} KB")
-    print(f"  {'total':<18}{total / 1024:>10,.0f} KB (limit {TOTAL_BUDGET // MB} MB)")
+    print(f"  {'total':<18}{total / 1024:>10,.0f} KB (limit {TOTAL_BUDGET / 1e6:.0f} MB = {TOTAL_BUDGET // 1000:,} KB)")
     if total >= TOTAL_BUDGET:
-        problems.append(f"total size {total / MB:.1f} MB is over {TOTAL_BUDGET // MB} MB")
+        problems.append(f"total size {total / 1e6:.2f} MB is over {TOTAL_BUDGET / 1e6:.0f} MB")
     cases_file = out / "cases_weekly.json"
+    if cases_file.exists() and total - cases_file.stat().st_size >= OTHERS_BUDGET:
+        problems.append(f"files other than cases_weekly are {(total - cases_file.stat().st_size) / 1e6:.2f} MB, "
+                        "contract budget is 4 MB combined")
     if cases_file.exists():
         if cases_file.stat().st_size >= CASES_BUDGET:
-            problems.append(f"cases_weekly.json is {cases_file.stat().st_size / MB:.2f} MB, budget is 6 MB")
+            problems.append(f"cases_weekly.json is {cases_file.stat().st_size / 1e6:.2f} MB, budget is 6 MB")
         rows = json.loads(cases_file.read_text(encoding="utf-8"))["rows"]
         code_ok = re.compile(r"^\d\d$")
         for r in rows:
@@ -363,6 +447,11 @@ def main(argv=None) -> int:
     ap.add_argument("--reference", default="data/reference")
     ap.add_argument("--out", default="serving/data")
     ap.add_argument("--diseases", nargs="+", default=ALLOWED_DISEASES)
+    ap.add_argument("--repeat-baseline", action="store_true",
+                    help="repeat the population_proportional baseline for every alpha (default: once, alpha null)")
+    ap.add_argument("--omit-zero-grid-rows", action="store_true",
+                    help="leave out allocation grid rows where allocated_units and unmet_demand are both 0 "
+                         "(about 70% of rows; a missing row then means 0/0). Default: keep every row")
     ap.add_argument("--forecast-model", default="nb_lagged_weather",
                     help="model served in forecast.json (the baseline stays out of the dashboard feed)")
     a = ap.parse_args(argv)
@@ -381,6 +470,14 @@ def main(argv=None) -> int:
                           cases.loc[cases["suppressed"], ["district_code", "disease", "epi_year", "epi_week"]])
     dq_batches, batch_ids = build_dq(Path(a.gold) / "gold_dq_report")
     calendar = build_calendar(Path(a.analytics) / "preparedness_calendar.csv", a.diseases)
+    alloc_live, alloc_problems = build_allocation(Path(a.analytics) / "allocation", "live",
+                                                  "Current (live) allocation", districts, now, required=True,
+                                                  omit_zero=a.omit_zero_grid_rows,
+                                                  repeat_baseline=a.repeat_baseline)
+    alloc_peak, peak_problems = build_allocation(Path(a.analytics) / "allocation_peak", "peak",
+                                                 "Peak-season scenario (retrospective)", districts, now,
+                                                 required=False, omit_zero=a.omit_zero_grid_rows,
+                                                 repeat_baseline=a.repeat_baseline)
     stock = build_stock(Path(a.gold_csv))
     forecast, forecast_problems = build_forecast(Path(a.analytics) / "gold_forecast.parquet", a.diseases,
                                                  a.forecast_model)
@@ -394,6 +491,11 @@ def main(argv=None) -> int:
 
     write_rows(out, "cases_weekly.json", {"generated_at": now, "data_as_of": as_of}, "rows", cases)
     write_rows(out, "alerts.json", {"generated_at": now}, "rows", alerts)
+    write_obj(out, "allocation.json", alloc_live)
+    if alloc_peak:
+        write_obj(out, "allocation_peak.json", alloc_peak)
+    else:
+        print("allocation_peak.json: no data/analytics/allocation_peak here; a committed copy is left untouched")
     write_rows(out, "calendar.json", {"generated_at": now, "data_as_of": as_of}, "rows", calendar)
     write_rows(out, "forecast.json", {"generated_at": now}, "rows", forecast)
     write_rows(out, "stock.json", {"generated_at": now}, "rows", stock)
@@ -419,8 +521,9 @@ def main(argv=None) -> int:
     print(f"stock: {len(stock):,} rows | seasonality: {len(seasonality):,} rows")
     print(f"alerts: {len(alerts):,} rows (last {ALERT_WEEKS} weeks) | dq_report: {len(dq_batches)} batches")
     print(f"data_as_of {as_of} | wrote to {out}")
-    problems = validate(out) + season_problems + forecast_problems
-    print("NOT WRITTEN YET:", ", ".join(NOT_YET))
+    problems = validate(out) + season_problems + forecast_problems + alloc_problems + peak_problems
+    if NOT_YET:
+        print("NOT WRITTEN YET:", ", ".join(NOT_YET))
     if problems:
         print("SERVING EXPORT CHECK FAILED:\n  " + "\n  ".join(problems))
         return 1
