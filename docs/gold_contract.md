@@ -1,7 +1,8 @@
 # Gold Layer Contract
 
-Status: v0.3. FROZEN once all three members approve (target: end of Day 3).
+Status: v0.4. FROZEN once all three members approve (target: end of Day 3).
 v0.3 changes: added the as-of views (`gold_weekly_reports`, `gold_weekly_cases_by_lag`, `gold_reporting_status`) so the detector can see what was known in each report week; `reporting_facilities` and `expected_facilities` moved out of `gold_weekly_cases`; `gold_alerts` weeks are REPORT weeks; added truth-file section; `reporting_completeness` redefined (capped credit per facility); quarantine reason codes renamed (`AGE_INVALID`, `FACILITY_ORPHAN`, `ICD10_INVALID`, `ONSET_BEFORE_MIN_DATE`, `REPORT_BEFORE_ONSET`, `REPORT_DELAY_TOO_LONG`; `SEX_INVALID` is a warn rule that keeps the row with sex set to `U`); `gold_dq_report` gained `dataset`, `severity`, `description`, `rows_in`, `rows_quarantined`; `gold_weekly_weather` gained `days_observed`.
+v0.4 changes: gold marts now cover `dengue`, `diarrhoeal`, `ili` and `malaria` (same schema and onset-week logic; rows added, no column changed); `gold_demand` covers all four diseases; `gold_alerts` documents `week_start_date` and `min_cases`; the 37 silver quality rules are named; `gold_allocation` documents the analytics file it is exported from.
 Owner: Data Engineer. Readers: Analytics Engineer, Visualisation Engineer.
 Depends on: `docs/schema.md`. If a field here disagrees with schema.md, schema.md wins; fix this file.
 
@@ -11,12 +12,12 @@ Depends on: `docs/schema.md`. If a field here disagrees with schema.md, schema.m
 - Encounters carry no district. Silver joins `encounters.facility_id` to `facilities.district_code`. Orphan `facility_id` rows (~0.5%) go to quarantine (reason `FACILITY_ORPHAN`) and never reach gold.
 - **No `disease` column in S4.** Silver derives it from `icd10_code` via `pipeline/silver/icd_map.csv`:
   dengue = A90, A91 | diarrhoeal = A00-A09 | ili = J10, J11 | malaria = B50-B54 | other = everything else.
-  Gold marts cover `dengue` and `diarrhoeal` (the two chosen diseases). Other diseases stay in silver.
+  Gold marts cover `dengue`, `diarrhoeal`, `ili` and `malaria` (the `--diseases` default of `pipeline/gold/build.py`). `other` stays in silver. The serving export publishes `dengue` and `diarrhoeal` only (see `serving_contract.md`).
 - **Epi-week** is ISO 8601 (Monday start), assigned from `onset_date`. `epi_year` is the ISO YEAR, not the calendar year (early January can be week 52/53 of the previous ISO year). Weeks run 1-53.
 - A record reported up to 21 days late updates an older epi-week (ING-4); a later one is quarantined as `REPORT_DELAY_TOO_LONG`. `report_date` is kept for delay analysis, as-of backtests and the silent-facility artefact rule.
 - **Dedup key is `encounter_id`; the record with the latest `report_date` wins** (schema.md idempotency rule). Silver keeps BOTH `first_report_date` (earliest report of that encounter_id) and `report_date` (latest). The as-of tables below time a case by `first_report_date`: a case became known when it was first reported, and a resubmission must not move it to a later week.
 - **Two week axes.** Onset week (from `onset_date`) feeds incidence, forecasting, demand and the dashboard. Report week (ISO week of `first_report_date`) feeds detection. Counts by onset week are revised as late reports arrive; counts by report week are never revised once the week is over, so detection on them is "as known at the time" by construction.
-- **Invalid values are quarantined, not repaired.** Encounter rules with severity `error` (the row goes to quarantine): `AGE_INVALID` (age missing, non-numeric or above 120), `FACILITY_ORPHAN` (`facility_id` not in the facility registry), `ICD10_INVALID` (code missing or not matching the ICD-10 pattern), `ONSET_BEFORE_MIN_DATE` (`onset_date` before 2021-01-01), `REPORT_BEFORE_ONSET` (`report_date` earlier than `onset_date`), `REPORT_DELAY_TOO_LONG` (reporting delay above 21 days), `REPORT_DATE_IN_FUTURE`, `ONSET_DATE_INVALID`, `REPORT_DATE_INVALID`, `ENC_ID_MISSING`, `FACILITY_ID_MISSING`, `PATIENT_ID_MISSING`, `LAB_FLAG_INVALID`, `ADMITTED_FLAG_INVALID`, `OUTCOME_INVALID`. One rule has severity `warn`: `SEX_INVALID` (`sex` not M/F) keeps the row and sets `sex` to `U`; it is counted in `gold_dq_report` but the row is not quarantined. Decided once here; the live list is in `gold_dq_report`.
+- **Invalid values are quarantined, not repaired.** Encounter rules with severity `error` (the row goes to quarantine): `AGE_INVALID` (age missing, non-numeric or above 120), `FACILITY_ORPHAN` (`facility_id` not in the facility registry), `ICD10_INVALID` (code missing or not matching the ICD-10 pattern), `ONSET_BEFORE_MIN_DATE` (`onset_date` before 2021-01-01), `REPORT_BEFORE_ONSET` (`report_date` earlier than `onset_date`), `REPORT_DELAY_TOO_LONG` (reporting delay above 21 days), `REPORT_DATE_IN_FUTURE`, `ONSET_DATE_INVALID`, `REPORT_DATE_INVALID`, `ENC_ID_MISSING`, `FACILITY_ID_MISSING`, `PATIENT_ID_MISSING`, `LAB_FLAG_INVALID`, `ADMITTED_FLAG_INVALID`, `OUTCOME_INVALID`. One rule has severity `warn`: `SEX_INVALID` (`sex` not M/F) keeps the row and sets `sex` to `U`; it is counted in `gold_dq_report` but the row is not quarantined. Decided once here. In total silver runs 37 rules over five datasets: `encounters` 16 (the rules above), `facilities` 6, `stock` 6, `weather` 5 and `districts` 4. The rules of the other four datasets are `FAC_BEDS_INVALID`, `FAC_COORD_INVALID`, `FAC_DISTRICT_UNKNOWN`, `FAC_ICU_INVALID`, `FAC_ID_MISSING`, `FAC_TYPE_INVALID` (facilities); `STOCK_COUNT_INVALID`, `STOCK_DATE_INVALID`, `STOCK_DATE_IN_FUTURE`, `STOCK_FACILITY_MISSING`, `STOCK_FACILITY_ORPHAN`, `STOCK_OCCUPIED_EXCEEDS_BEDS` (stock); `WX_DATE_INVALID`, `WX_DISTRICT_UNKNOWN`, `WX_HUMIDITY_INVALID`, `WX_PRECIP_INVALID`, `WX_TEMP_INVALID` (weather); `DIST_CODE_MISSING`, `DIST_COORD_INVALID`, `DIST_NAME_MISSING`, `DIST_POPULATION_INVALID` (districts). The live list, with the severity of each rule, is in `gold_dq_report`.
 - Age bands are derived in silver: 0-4, 5-14, 15-24, 25-44, 45-64, 65+.
 - `patient_id` exists in bronze only. Silver carries `patient_hash` (salted hash, salt in `.env`, never committed). Gold contains neither.
 - **S6 stock snapshots** (JSON Lines) are idempotent on key (`snapshot_date`, `facility_id`). Orphan facility ids are quarantined. Counts must be >= 0. `icu_beds <= beds` is a facility (S5) rule.
@@ -26,7 +27,7 @@ Depends on: `docs/schema.md`. If a field here disagrees with schema.md, schema.m
 
 - Storage: Parquet under `data/gold/<table>/`, partitioned by `epi_year`/`epi_week` where the table has those columns.
 - `week_start_date` is always supplied so no consumer re-derives it.
-- `disease` values: `dengue`, `diarrhoeal` (gold), with `ili` and `malaria` allowed later without a schema change.
+- `disease` values in gold: `dengue`, `diarrhoeal`, `ili`, `malaria` (`other` stays in silver). The serving export publishes `dengue` and `diarrhoeal` only (see `serving_contract.md`).
 - No hard-coded dates, file names or row counts. The hidden 14-day drop must run unchanged.
 - Gold holds TRUE counts (it lives in the secure zone). Small-cell suppression is applied only when writing serving exports (see `serving_contract.md`).
 - Writes are partition-overwrite by epi-week (or MERGE), so reruns never duplicate rows.
@@ -122,6 +123,8 @@ Check value: district 30, report week starting 2022-04-18 gives 0.7216 (8 of 11 
 | severity | string | `low`, `medium`, `high` |
 | reporting_artefact_flag | boolean | true when a silent facility back-filled; alert is suppressed |
 | run_id | string | links to gold_eval_metrics |
+| week_start_date | date | Monday of the report week |
+| min_cases | numeric | minimum case count a week needs before it can alert (the detector's floor) |
 
 ### gold_forecast (district x disease x origin week x horizon x model)
 | column | type | notes |
@@ -143,7 +146,7 @@ Check value: district 30, report week starting 2022-04-18 gives 0.7216 (8 of 11 
 | district_code, epi_year, epi_week | key | last snapshot of the week per facility, summed per district |
 | week_start_date | date | Monday |
 | iv_saline_units, ns1_kits, ors_sachets | long | |
-| antimalarial_courses | long | carried through, unused for the two chosen diseases |
+| antimalarial_courses | long | carried through; not converted to demand (malaria demand covers beds and IV saline only) |
 | occupied_beds | long | |
 | beds_capacity, icu_beds_capacity | long | sums from S5 (static facility file) |
 | facilities_reporting | int | |
@@ -152,9 +155,11 @@ Check value: district 30, report week starting 2022-04-18 gives 0.7216 (8 of 11 
 | column | type | notes |
 |---|---|---|
 | district_code, disease, target_epi_year, target_epi_week | key | |
-| beds_needed | double | assumptions in `docs/assumptions.md` |
+| beds_needed | double | assumptions in `docs/demand_assumptions.md` |
 | iv_saline_units_needed, ns1_kits_needed, ors_sachets_needed | double | same units as S6 |
-| beds_needed_q90 etc. | double | upper-quantile versions used by the optimiser (AN-6/AN-7) |
+| beds_needed_q90 etc. | double | upper-quantile versions used by the optimiser (AN-6/AN-7); `_q10` lower-quantile versions are also written |
+
+Covers all four diseases (`dengue`, `diarrhoeal`, `ili`, `malaria`). A disease in the forecast without conversion values makes the stage fail instead of silently dropping out of the totals.
 
 ### gold_allocation (budget level x alpha x strategy x resource x district)
 | column | type | notes |
@@ -166,6 +171,8 @@ Check value: district 30, report week starting 2022-04-18 gives 0.7216 (8 of 11 
 | resource | string | `iv_saline_units`, `ns1_kits`, `ors_sachets`, `beds` |
 | allocated_units | double | |
 | unmet_demand | double | max(0, demand - (stock + allocated_units)) |
+
+Written by `analytics/optimise/run_allocation.py` as `data/analytics/allocation/allocation_grid.csv` with the columns `budget_frac`, `alpha`, `policy` (`optimised` or `proportional`), `district_code`, `resource`, `x`, `unmet`, next to `allocation_plan.csv`, `efficiency_equity_curve.csv` and `recommendation.json`. The names in the table are the serving names: `budget_level` = `budget_frac` x 100 (percent of the cost of the full unmet need), `strategy` = `policy` (`proportional` is exported as `population_proportional`), `allocated_units` = `x`, `unmet_demand` = `unmet`. `alpha` is null for the population-proportional baseline, which does not depend on it.
 
 ### gold_eval_metrics (run x metric)
 run_id, component (`detection`/`forecast`/`optimiser`), metric (`sensitivity`, `false_alerts_per_district_year`, `median_days_to_detect`, `mae`, `coverage_80`, `wis`), value, model_or_detector, threshold (null unless for the trade-off curve).
@@ -207,3 +214,4 @@ After freeze, columns may only be ADDED, never renamed or removed. Announce in t
 ## Change log
 
 - v0.3 (2026-10-22): `reporting_completeness` redefined as volume-weighted capped credit, `min(usual, 2n)` per facility (was: share of usual volume from facilities with any report). Quarantine reason codes renamed to `AGE_INVALID`, `FACILITY_ORPHAN`, `REPORT_BEFORE_ONSET`; `ICD10_INVALID`, `ONSET_BEFORE_MIN_DATE` and `REPORT_DELAY_TOO_LONG` documented; `SEX_INVALID` is a warn rule (row kept, sex set to `U`). `gold_dq_report` gained `dataset`, `severity`, `description`, `rows_in`, `rows_quarantined`. `gold_weekly_weather` gained `days_observed`. Quarantine table documented with its real columns.
+- v0.4 (2026-10-26): gold marts cover `dengue`, `diarrhoeal`, `ili` and `malaria` (the `--diseases` default of `pipeline/gold/build.py` was extended; same schema and onset-week logic, rows only: 64 districts x 4 diseases = 256 series; the three gold reconciliation checks pass). `gold_demand` covers all four diseases. `gold_alerts` documents `week_start_date` and `min_cases`. The 37 silver rules are named in the Alignment section. `gold_allocation` documents the file it is exported from. No field was renamed or removed.
