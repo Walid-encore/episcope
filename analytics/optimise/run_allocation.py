@@ -265,7 +265,7 @@ def main():
     grid.to_csv(out / "allocation_grid.csv", index=False)
     print(f"wrote allocation_grid.csv: {len(grid):,} rows")
     summary = {"budget": budget, "budget_frac": a.budget_frac, "recommended_alpha": alpha,
-               "tolerance": a.tolerance, "rule": a.rule, "as_of": as_of, "min_cover": a.min_cover,
+               "tolerance": a.tolerance, "rule": a.rule, "as_of": as_of or (stock_quality or {}).get("latest_snapshot"), "min_cover": a.min_cover,
                "min_cover_used": plan.attrs.get("min_cover_used", 0.0),
                "transport_frac": a.transport_frac, "transport": transport_report(plan, vol, caps),
                "weights": "severity (from --cases)" if weights is not None else "equal",
