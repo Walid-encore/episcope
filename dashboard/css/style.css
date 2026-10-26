@@ -47,3 +47,12 @@ table.warn tbody tr.selected { background:rgba(31,78,121,.28); box-shadow:inset 
 table.warn td.empty { color:var(--muted); text-align:center; cursor:default; padding:16px; }
 .sev { letter-spacing:-1px; font-size:10px; }
 .sev-high { color:#d95f02; } .sev-medium { color:#e6a100; } .sev-low { color:var(--muted); }
+
+/* view 4: allocation spans the full width */
+#allocation { grid-column: 1 / -1; }
+.controls-row { display:flex; flex-wrap:wrap; gap:14px 22px; align-items:center; padding:4px 6px 8px; }
+.controls-row select, .controls-row input[type=range] { vertical-align:middle; }
+.controls-row .val { color:var(--muted); font-size:12px; min-width:90px; }
+.alloc-wrap { display:flex; flex-wrap:wrap; gap:12px; }
+.alloc-wrap svg.bars { flex:3 1 420px; min-width:300px; }
+.alloc-wrap svg.curve { flex:2 1 320px; min-width:280px; }

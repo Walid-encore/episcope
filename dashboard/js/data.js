@@ -4,7 +4,7 @@ const params = new URLSearchParams(location.search);
 export const BASE = params.get("data") === "sample" ? "/serving/sample/" : "/serving/data/";
 const GEO = "/serving/geo/bgd_adm2_simplified_coded.geojson";
 const FILES = ["meta", "freshness", "cases_weekly", "forecast", "alerts",
-               "seasonality", "allocation", "stock", "dq_report"];
+               "seasonality", "allocation", "allocation_peak", "stock", "dq_report"];
 const REQUIRED = new Set(["meta", "freshness", "cases_weekly"]);
 
 export async function loadAll() {
