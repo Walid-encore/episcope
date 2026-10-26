@@ -49,8 +49,7 @@ export function mountTimeSeries(el, data, store, tooltip) {
   // Alert strip
   const gS = svg.append("g");
   const gSy = svg.append("g").attr("transform", `translate(${M.l},0)`);
-  svg.append("text").attr("x", M.l).attr("y", S.t - 6).attr("class", "muted")
-    .text("Alert score vs. threshold (max across districts if national)");
+  const stripTitle = svg.append("text").attr("x", M.l).attr("y", S.t - 6).attr("class", "muted");
   const thrLine = svg.append("line").attr("stroke", "currentColor").attr("stroke-dasharray", "4 3");
   const thrText = svg.append("text").attr("text-anchor", "start").attr("font-size", 10);
 
@@ -182,6 +181,7 @@ export function mountTimeSeries(el, data, store, tooltip) {
       ? `${info.division} division`
       : "Sum of districts with non-suppressed counts (suppressed cells excluded); forecast band = sum of district quantiles (approximate)");
 
+    stripTitle.text(s.district ? "Alert score vs. threshold (this district)" : "Alert score vs. threshold (highest score across districts)");
     const vis = obs.map((o, i) => ({ ...o, i, d: dates[i] })).filter(o => o.i >= i0 && o.i <= i1);
     const ymax = d3.max([...vis.map(o => o.v), ...(showFc ? fc.map(f => f.q90) : [])]) || 1;
     const y = d3.scaleLinear().domain([0, ymax * 1.1]).nice().range([F.b, F.t]);

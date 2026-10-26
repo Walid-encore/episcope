@@ -8,7 +8,7 @@ Source tables: `docs/gold_contract.md`.
 
 - Output folder: `serving/data/`. Hand-made samples with identical shape live in `serving/sample/`. The dashboard reads from one configurable base path, so swapping sample for real needs no code change.
 - Dashboard is static D3 v7, served with `python -m http.server`.
-- Total size of all files in `serving/data/` is under 10 MB (VIS-4). Budget: cases_weekly < 6 MB, everything else < 4 MB combined.
+- Total size of all files in `serving/data/` is under 10 MB (VIS-4). Budget: cases_weekly < 7.5 MB, everything else < 2.5 MB combined (the 10 MB total is the limit).
 - Everything is aggregated. No patient-level data, no hashed ids, no facility-level rows.
 - **Geography key is `district_code`**: a 2-digit string "01".."64" (never "BD-01", never a number). It equals the `district_code` property in `serving/geo/bgd_adm2_simplified_coded.geojson`.
 - **Privacy (PRV-2):** any count of 1-4 is suppressed. Complementary suppression is applied so suppressed cells cannot be recovered from totals by subtraction. A suppressed count is written as `null` with `"suppressed": true`; its `incidence_per_100k` is also `null`. A true zero is written as `0` with `"suppressed": false`. Never write 0 for a suppressed cell.
@@ -105,3 +105,10 @@ Last 14 batches only.
 ## Change process
 
 After freeze, fields may only be ADDED. Never rename or remove. Announce in the group chat and add a note at the bottom of this file.
+
+## Changes after v0.2 (four diseases, announced 2026-10-26)
+- Export covers **dengue, diarrhoeal, ili and malaria**. `cases_weekly.json` has the full history for dengue and diarrhoeal and only the last 104 weeks for ili and malaria; earlier weeks are absent, not zero-filled. `meta.diseases` lists the four.
+- `seasonality.json` is per **division**: rows have `division` and `district_code: null`; national rows keep `district_code: "ALL"` and `division: "ALL"`. Top level: `geography_level: "division"`, `all_label: "weighted mean of divisions"`. Rows also carry `low_volume`, `peak_week_earliest` and `peak_week_latest`; a range with earliest > latest wraps around the year end. `mean_weekly_cases` is never exported (PRV-2).
+- `allocation.json` and `allocation_peak.json`: grid rows where `allocated_units` and `unmet_demand` are both 0 are omitted, and the top-level `grid_zero_rows_omitted: true` says so; a missing row means 0 / 0 only when that flag is true. The `population_proportional` rows have `alpha: null`. `budget_unit: "percent_of_full_need"`.
+- `alerts.json`: rows on weeks with a suppressed case count are not exported (their score could be inverted).
+- **PRV-2 scope.** The 1-4 suppression applies to counts of patients, which only `cases_weekly.json` carries. Forecast values, alert scores, allocated and unmet supply units, stock units and seasonal indices are modelled or supply quantities and are not suppressed even when a value falls between 1 and 4. `dq_report.json` carries record counts of the data-quality process, not disease cases.
