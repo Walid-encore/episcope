@@ -379,6 +379,15 @@ def build_allocation(folder: Path, scenario: str, label: str, districts: pd.Data
     alphas = sorted(rows.loc[rows["strategy"] == "optimised", "alpha"].dropna().unique().tolist())
     if len(levels) < 5 or set(rows["strategy"]) != set(STRATEGY.values()):
         problems.append(f"{scenario}: needs >= 5 budget levels and both strategies (found {levels})")
+    # a replay scenario is labelled from what it replays, so a reader does not assume the week had the most cases
+    wk, hs = rec.get("as_of_week"), rec.get("horizon_start")
+    if scenario == "peak" and wk and hs:
+        try:
+            d = pd.to_datetime(hs)
+            hs = f"{d.day} {d.strftime('%b %Y')}"
+        except (ValueError, TypeError):
+            hs = str(hs)
+        label = f"Replay of the forecast issued for {wk}, covering the four weeks from {hs}"
     obj = {"generated_at": now, "scenario": scenario, "scenario_label": label, "as_of": rec.get("as_of"),
            "budget_unit": "percent_of_full_need", "grid_zero_rows_omitted": omit_zero,
            "alpha_values": alphas, "budget_levels": levels, "recommendation": rec,
