@@ -70,7 +70,12 @@ al = load("alerts")
 if al:
     r = al["rows"]
     need(r, ["district_code", "disease", "week_start", "detector", "score", "threshold", "severity", "alert_flag", "reporting_artefact_flag"], "alerts")
-    print(f"       diseases {sorted({x['disease'] for x in r})}, severities {sorted({x['severity'] for x in r})}")
+    import collections
+    print(f"       diseases {sorted({x['disease'] for x in r})}")
+    print("       severity counts:", dict(collections.Counter(str(x['severity']) for x in r)))
+    nosev = [x for x in r if x["alert_flag"] and x["severity"] is None]
+    (bad if nosev else ok)(f"flagged alerts without a severity: {len(nosev)}")
+    print("       alert_flag true:", sum(1 for x in r if x["alert_flag"]), "| artefact flagged:", sum(1 for x in r if x["reporting_artefact_flag"]))
 
 ac = load("allocation")
 if ac:

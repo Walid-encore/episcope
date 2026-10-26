@@ -43,9 +43,16 @@ export function mountChoropleth(el, data, store, tooltip) {
   lg.append("text").attr("x", 250).attr("y", 11).text("suppressed (<5 cases)");
   lg.append("rect").attr("x", 230).attr("y", 20).attr("width", 14).attr("height", 14).attr("fill", "#bdbdbd");
   lg.append("text").attr("x", 250).attr("y", 31).text("no data");
+  lg.append("rect").attr("x", 400).attr("y", 20).attr("width", 14).attr("height", 14).attr("fill", "#c9d3e0").attr("stroke", "#8a96a6");
+  lg.append("text").attr("x", 420).attr("y", 31).text("not exported for this disease");
   lg.append("circle").attr("cx", 400).attr("cy", 7).attr("r", 5).attr("fill", "#111").attr("stroke", "#fff");
   lg.append("text").attr("x", 410).attr("y", 11).text("alert");
 
+  // Weeks outside a disease's export window are "not exported", which is not the same as "no data".
+  const outside = s => {
+    const w = data.diseaseWindow?.get(s.disease), wk = data.weeks[s.week];
+    return !!w && (wk < w[0] || wk > w[1]);
+  };
   const rowFor = (code, s) => data.cases.get(`${s.disease}|${data.weeks[s.week]}|${code}`);
   const alertSet = s => new Set((data.alerts?.rows ?? [])
     .filter(a => a.alert_flag && a.disease === s.disease && a.week_start === data.weeks[s.week])
@@ -54,7 +61,7 @@ export function mountChoropleth(el, data, store, tooltip) {
   function tipHtml(f) {
     const s = store.get(), code = f.properties.district_code, r = rowFor(code, s);
     const name = `<b>${f.properties.district_name}</b> (${f.properties.division})`;
-    if (!r) return `${name}<br>no data for this week`;
+    if (!r) return outside(s) ? `${name}<br>not exported for this disease before ${data.diseaseWindow.get(s.disease)[0]}` : `${name}<br>no data for this week`;
     if (r.suppressed) return `${name}<br>suppressed (fewer than 5 cases)`;
     return `${name}<br>${r.cases} cases<br>${r.incidence_per_100k} per 100,000`;
   }
@@ -69,7 +76,7 @@ export function mountChoropleth(el, data, store, tooltip) {
 
     paths.attr("fill", f => {
       const r = rowFor(f.properties.district_code, s);
-      if (!r) return "#bdbdbd";
+      if (!r) return outside(s) ? "#c9d3e0" : "#bdbdbd";
       if (r.suppressed) return "url(#hatch)";
       return color(r.incidence_per_100k);
     }).classed("selected", f => f.properties.district_code === s.district);
