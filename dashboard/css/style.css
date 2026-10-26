@@ -31,3 +31,19 @@ main { display:grid; grid-template-columns:minmax(0,5fr) minmax(0,6fr); gap:16px
 .ts { color:var(--fg); }
 .ts .domain, .ts .tick line { stroke:var(--muted); }
 .ts .brush .selection { fill:var(--accent); fill-opacity:.25; stroke:var(--accent); }
+
+/* view 5: early-warning table; map spans both rows of the right column */
+#choropleth { grid-row: span 2; }
+@media (max-width: 1000px) { #choropleth { grid-row: auto; } }
+.panel-title { margin:4px 6px 2px; font-size:14px; }
+.panel-note { margin:0 6px 6px; color:var(--muted); font-size:11px; }
+.table-wrap { max-height:300px; overflow:auto; }
+table.warn { width:100%; border-collapse:collapse; font-size:12px; }
+table.warn th { position:sticky; top:0; background:var(--panel); text-align:left; padding:5px 6px; border-bottom:2px solid var(--line); }
+table.warn td { padding:5px 6px; border-bottom:1px solid var(--line); }
+table.warn tbody tr { cursor:pointer; }
+table.warn tbody tr:hover, table.warn tbody tr:focus { background:rgba(127,127,127,.18); outline:none; }
+table.warn tbody tr.selected { background:rgba(31,78,121,.28); box-shadow:inset 3px 0 0 var(--accent); }
+table.warn td.empty { color:var(--muted); text-align:center; cursor:default; padding:16px; }
+.sev { letter-spacing:-1px; font-size:10px; }
+.sev-high { color:#d95f02; } .sev-medium { color:#e6a100; } .sev-low { color:var(--muted); }

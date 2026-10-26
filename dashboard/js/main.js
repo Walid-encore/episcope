@@ -2,6 +2,7 @@ import { loadAll, BASE } from "./data.js";
 import { createStore } from "./state.js";
 import { mountChoropleth } from "./views/choropleth.js";
 import { mountTimeSeries } from "./views/timeseries.js";
+import { mountWarnings } from "./views/warnings.js";
 
 const tip = document.getElementById("tooltip");
 const tooltip = {
@@ -49,6 +50,7 @@ try {
 
   mountChoropleth(document.getElementById("choropleth"), data, store, tooltip);
   mountTimeSeries(document.getElementById("timeseries"), data, store, tooltip);
+  mountWarnings(document.getElementById("warnings"), data, store);
   store.set({}); // initial notify so labels render
 } catch (e) {
   const err = document.getElementById("error");
