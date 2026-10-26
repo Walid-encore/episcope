@@ -56,3 +56,8 @@ table.warn td.empty { color:var(--muted); text-align:center; cursor:default; pad
 .alloc-wrap { display:flex; flex-wrap:wrap; gap:12px; }
 .alloc-wrap svg.bars { flex:3 1 420px; min-width:300px; }
 .alloc-wrap svg.curve { flex:2 1 320px; min-width:280px; }
+
+/* view 3: seasonal heatmap spans the full width */
+#seasonal { grid-column: 1 / -1; }
+.sea { max-width:100%; }
+table.warn tbody tr.selected td { font-weight:600; }

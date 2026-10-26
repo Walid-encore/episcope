@@ -4,6 +4,7 @@ import { mountChoropleth } from "./views/choropleth.js";
 import { mountTimeSeries } from "./views/timeseries.js";
 import { mountWarnings } from "./views/warnings.js";
 import { mountAllocation } from "./views/allocation.js";
+import { mountSeasonal } from "./views/seasonal.js";
 
 const tip = document.getElementById("tooltip");
 const tooltip = {
@@ -64,6 +65,7 @@ try {
   mountChoropleth(document.getElementById("choropleth"), data, store, tooltip);
   mountTimeSeries(document.getElementById("timeseries"), data, store, tooltip);
   mountWarnings(document.getElementById("warnings"), data, store);
+  mountSeasonal(document.getElementById("seasonal"), data, store, tooltip);
   if (A) mountAllocation(document.getElementById("allocation"), data, store, tooltip);
   else document.getElementById("allocation").insertAdjacentHTML("afterbegin", "<p class='panel-note'>allocation.json not found in " + BASE + "</p>");
   store.set({}); // initial notify so labels render
