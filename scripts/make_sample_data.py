@@ -82,19 +82,21 @@ for d in ACTIVE:
 dump("forecast.json", {"generated_at": NOW, "rows": frows})
 
 # ---- alerts
-top = sorted(ACTIVE, key=lambda d: -last_cases[(d["district_code"], "dengue")])[:7]
 arows = []
-for k, d in enumerate(top):
-    for o in range(5):                      # 5 weeks of alert history per district
-        score = round(6.5 - k * 0.7 - o * 1.2, 1)
-        if score <= 1.5:                    # contract: only rows above half the threshold
-            continue
-        y_, w_, ws_ = WEEKS[-1 - o]
-        arows.append({"district_code": d["district_code"], "disease": "dengue", "epi_year": y_,
-                      "epi_week": w_, "week_start": ws_, "detector": "ears_c2",
-                      "score": score, "threshold": 3.0,
-                      "severity": "high" if score >= 5 else "medium" if score >= 3 else "low",
-                      "alert_flag": score >= 3, "reporting_artefact_flag": k == 6 and o == 0})
+for dis in DISEASES:
+    top = sorted(ACTIVE, key=lambda d: -last_cases[(d["district_code"], dis)])[:7]
+    base = 6.5 if dis == "dengue" else 4.8
+    for k, d in enumerate(top):
+        for o in range(5):                  # 5 weeks of alert history per district
+            score = round(base - k * 0.6 - o * 1.1, 1)
+            if score <= 1.5:                # contract: only rows above half the threshold
+                continue
+            y_, w_, ws_ = WEEKS[-1 - o]
+            arows.append({"district_code": d["district_code"], "disease": dis, "epi_year": y_,
+                          "epi_week": w_, "week_start": ws_, "detector": "ears_c2",
+                          "score": score, "threshold": 3.0,
+                          "severity": "high" if score >= 5 else "medium" if score >= 3 else "low",
+                          "alert_flag": score >= 3, "reporting_artefact_flag": dis == "dengue" and k == 6 and o == 0})
 dump("alerts.json", {"generated_at": NOW, "rows": arows})
 
 # ---- seasonality (district_code "ALL" = national)
