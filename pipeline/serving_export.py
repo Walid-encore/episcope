@@ -8,7 +8,8 @@ CSVs written by the `export` stage (data/gold_csv), data/analytics/gold_alerts.p
 No Spark needed.
 
 Rules taken from the contract and from the visualisation engineer:
-  - only the diseases in ALLOWED_DISEASES are exported (gold has four; meta lists only these)
+  - all four diseases are exported; ILI and malaria only for the last --short-weeks (104) weeks of cases_weekly,
+    and no earlier week is filled with zeros (the dashboard reads each disease's own first and last week)
   - cases 1-4 -> cases null, incidence_per_100k null, suppressed true; a true 0 stays 0, suppressed false
   - gold names week_start_date -> serving name week_start
   - compact JSON, district_code is a 2-digit string
@@ -25,10 +26,11 @@ from pathlib import Path
 
 import pandas as pd
 
-ALLOWED_DISEASES = ["dengue", "diarrhoeal"]
+ALL_DISEASES = ["dengue", "diarrhoeal", "ili", "malaria"]
+DEFAULT_DISEASES = ["dengue", "diarrhoeal"]      # exported with the full cases history
 PIPELINE_VERSION = "v1.0"
 MB = 1024 * 1024
-CASES_BUDGET, TOTAL_BUDGET, OTHERS_BUDGET = 6_000_000, 10_000_000, 4 * MB   # total: strict decimal 10 MB; split: 4 MiB
+CASES_BUDGET, TOTAL_BUDGET, OTHERS_BUDGET = 7_500_000, 10_000_000, 2_500_000   # decimal bytes; the total is the VIS-4 limit
 ALERT_WEEKS = 104
 DQ_BATCHES = 14
 NOT_YET = []
@@ -62,7 +64,7 @@ def require(df, cols, label):
 
 
 # ------------------------------------------------------------------ cases_weekly (the only file with counts)
-def build_cases(gold_csv: Path, districts: pd.DataFrame, diseases) -> pd.DataFrame:
+def build_cases(gold_csv: Path, districts: pd.DataFrame, diseases, short_weeks: int = 104) -> pd.DataFrame:
     path = gold_csv / "gold_weekly_cases.csv"
     if not path.exists():
         sys.exit(f"{path} not found: run the `export` stage first")
@@ -96,6 +98,11 @@ def build_cases(gold_csv: Path, districts: pd.DataFrame, diseases) -> pd.DataFra
         "incidence_per_100k": (n / c["pop"] * 1e5).round(2).where(~sup),
         "suppressed": sup,
     })
+    # diseases beyond the default two are exported for the last `short_weeks` weeks only (size budget)
+    extra = ~out["disease"].isin(DEFAULT_DISEASES)
+    if extra.any():
+        cutoff = (pd.to_datetime(out["week_start"]).max() - pd.Timedelta(weeks=short_weeks - 1)).strftime("%Y-%m-%d")
+        out = out[~extra | (out["week_start"] >= cutoff)]
     return out.sort_values(["disease", "district_code", "week_start"]).reset_index(drop=True)
 
 
@@ -181,8 +188,9 @@ def build_stock(gold_csv: Path) -> pd.DataFrame:
 
 # ------------------------------------------------------------------ seasonality
 def build_seasonality(profile_path: Path, calendar_path: Path, districts: pd.DataFrame, diseases):
-    """seasonal_profile.csv is per DIVISION, so every district row carries its division's index (the dashboard
-    labels the heatmap division-level). Agreed with the analytics engineer:
+    """One row per DIVISION x disease x epi-week (values are identical for all districts of a division, so a
+    district copy would only repeat them 8x): `division` is the key and district_code is null. National rows have
+    district_code and division "ALL". Agreed with the analytics and visualisation engineers:
       - ALL = mean of the divisions weighted by mean_weekly_cases (preparedness_calendar.csv); mean_weekly_cases
         itself is NOT exported (PRV-2), only the low_volume flag
       - peak_flag = index within 10% of the series maximum AND clear_season; for every clear series the flagged
@@ -203,7 +211,7 @@ def build_seasonality(profile_path: Path, calendar_path: Path, districts: pd.Dat
                  "must add them to the calendar stage; then re-run `calendar` and this export")
     s = s[s["disease"].isin(diseases)].copy()
     cal = cal[cal["disease"].isin(diseases)].copy()
-    unknown = sorted(set(districts["division"]) - set(s["division"]) | set(districts["division"]) - set(cal["division"]))
+    unknown = sorted((set(districts["division"]) - set(s["division"])) | (set(districts["division"]) - set(cal["division"])))
     if unknown:
         sys.exit(f"divisions in districts.csv missing from seasonal_profile/preparedness_calendar: {unknown}")
     if cal["mean_weekly_cases"].isna().any() or (cal["mean_weekly_cases"] < 0).any():
@@ -211,7 +219,6 @@ def build_seasonality(profile_path: Path, calendar_path: Path, districts: pd.Dat
     cal["clear_season"] = cal["clear_season"].fillna(False).astype(bool)
     cal["low_volume"] = cal["low_volume"].fillna(False).astype(bool)
 
-    # division-level peak flag (raw rule) and the assertion against the calendar
     s["peak_raw"] = s["seasonal_index"] >= 0.9 * s.groupby(["division", "disease"])["seasonal_index"].transform("max")
     problems = []
     for r in cal[cal["clear_season"]].itertuples():
@@ -222,13 +229,11 @@ def build_seasonality(profile_path: Path, calendar_path: Path, districts: pd.Dat
         if int(r.peak_week) not in flagged:
             problems.append(f"peak_flag misses the calendar peak_week {int(r.peak_week)} for {r.division}/{r.disease}")
 
-    # district rows
-    per = (s.merge(districts[["district_code", "division"]], on="division")
-            .merge(cal[["division", "disease", "clear_season", "low_volume", "peak_week_earliest",
-                        "peak_week_latest"]], on=["division", "disease"]))
+    per = s.merge(cal[["division", "disease", "clear_season", "low_volume", "peak_week_earliest",
+                       "peak_week_latest"]], on=["division", "disease"])
     per["peak_flag"] = per["peak_raw"] & per["clear_season"]
+    per["district_code"] = None
 
-    # ALL = weighted mean of divisions
     nat = s.merge(cal[["division", "disease", "mean_weekly_cases"]], on=["division", "disease"])
     nat["num"] = nat["seasonal_index"] * nat["mean_weekly_cases"]
     g = nat.groupby(["disease", "epi_week"], as_index=False)[["num", "mean_weekly_cases"]].sum()
@@ -247,7 +252,7 @@ def build_seasonality(profile_path: Path, calendar_path: Path, districts: pd.Dat
     out["peak_week_earliest"] = pd.to_numeric(out["peak_week_earliest"]).round().astype("Int64")
     out["peak_week_latest"] = pd.to_numeric(out["peak_week_latest"]).round().astype("Int64")
     out["peak_flag"] = out["peak_flag"].astype(bool)
-    return out.sort_values(["disease", "district_code", "epi_week"]).reset_index(drop=True), problems
+    return out.sort_values(["disease", "division", "epi_week"]).reset_index(drop=True), problems
 
 
 # ------------------------------------------------------------------ calendar (no mean_weekly_cases: PRV-2)
@@ -313,7 +318,7 @@ STRATEGY = {"optimised": "optimised", "proportional": "population_proportional"}
 
 
 def build_allocation(folder: Path, scenario: str, label: str, districts: pd.DataFrame, now: str, required: bool,
-                     omit_zero: bool = False, repeat_baseline: bool = False):
+                     omit_zero: bool = True, repeat_baseline: bool = False):
     """One scenario folder -> allocation.json shape: precomputed grid (what-if, VIS-5), efficiency-equity curve
     (C3), the recommended plan with demand, stock and allocation (VIS-2 view 4) and the recommendation itself.
     budget_level = budget fraction x 100 (percent of the cost of the full unmet need, relative cost units).
@@ -413,10 +418,10 @@ def validate(out: Path) -> list:
     cases_file = out / "cases_weekly.json"
     if cases_file.exists() and total - cases_file.stat().st_size >= OTHERS_BUDGET:
         problems.append(f"files other than cases_weekly are {(total - cases_file.stat().st_size) / 1e6:.2f} MB, "
-                        "contract budget is 4 MB combined")
+                        "contract budget is 2.5 MB combined")
     if cases_file.exists():
         if cases_file.stat().st_size >= CASES_BUDGET:
-            problems.append(f"cases_weekly.json is {cases_file.stat().st_size / 1e6:.2f} MB, budget is 6 MB")
+            problems.append(f"cases_weekly.json is {cases_file.stat().st_size / 1e6:.2f} MB, budget is 7.5 MB")
         rows = json.loads(cases_file.read_text(encoding="utf-8"))["rows"]
         code_ok = re.compile(r"^\d\d$")
         for r in rows:
@@ -455,12 +460,14 @@ def main(argv=None) -> int:
     ap.add_argument("--analytics", default="data/analytics")
     ap.add_argument("--reference", default="data/reference")
     ap.add_argument("--out", default="serving/data")
-    ap.add_argument("--diseases", nargs="+", default=ALLOWED_DISEASES)
+    ap.add_argument("--diseases", nargs="+", default=ALL_DISEASES, choices=ALL_DISEASES,
+                    help="diseases to export; ili and malaria get only the last --short-weeks weeks of cases_weekly")
+    ap.add_argument("--short-weeks", type=int, default=104)
     ap.add_argument("--repeat-baseline", action="store_true",
                     help="repeat the population_proportional baseline for every alpha (default: once, alpha null)")
-    ap.add_argument("--omit-zero-grid-rows", action="store_true",
-                    help="leave out allocation grid rows where allocated_units and unmet_demand are both 0 "
-                         "(about 70% of rows; a missing row then means 0/0). Default: keep every row")
+    ap.add_argument("--keep-zero-grid-rows", action="store_true",
+                    help="keep allocation grid rows where allocated_units and unmet_demand are both 0. Default: they "
+                         "are omitted (about 70% of rows) and grid_zero_rows_omitted is true: a missing row = 0 / 0")
     ap.add_argument("--forecast-model", default="nb_lagged_weather",
                     help="model served in forecast.json (the baseline stays out of the dashboard feed)")
     a = ap.parse_args(argv)
@@ -474,18 +481,18 @@ def main(argv=None) -> int:
     districts["district_code"] = code2(districts["district_code"])
     districts = districts.sort_values("district_code")
 
-    cases = build_cases(Path(a.gold_csv), districts, a.diseases)
+    cases = build_cases(Path(a.gold_csv), districts, a.diseases, a.short_weeks)
     alerts = build_alerts(Path(a.analytics) / "gold_alerts.parquet", a.diseases,
                           cases.loc[cases["suppressed"], ["district_code", "disease", "epi_year", "epi_week"]])
     dq_batches, batch_ids = build_dq(Path(a.gold) / "gold_dq_report")
     calendar = build_calendar(Path(a.analytics) / "preparedness_calendar.csv", a.diseases)
     alloc_live, alloc_problems = build_allocation(Path(a.analytics) / "allocation", "live",
                                                   "Current (live) allocation", districts, now, required=True,
-                                                  omit_zero=a.omit_zero_grid_rows,
+                                                  omit_zero=not a.keep_zero_grid_rows,
                                                   repeat_baseline=a.repeat_baseline)
     alloc_peak, peak_problems = build_allocation(Path(a.analytics) / "allocation_peak", "peak",
                                                  "Peak-season scenario (retrospective)", districts, now,
-                                                 required=False, omit_zero=a.omit_zero_grid_rows,
+                                                 required=False, omit_zero=not a.keep_zero_grid_rows,
                                                  repeat_baseline=a.repeat_baseline)
     stock = build_stock(Path(a.gold_csv))
     forecast, forecast_problems = build_forecast(Path(a.analytics) / "gold_forecast.parquet", a.diseases,
@@ -496,7 +503,7 @@ def main(argv=None) -> int:
 
     as_of = cases["week_start"].max()
     first, last = cases.loc[cases["week_start"].idxmin()], cases.loc[cases["week_start"].idxmax()]
-    present = [d for d in ALLOWED_DISEASES if d in set(cases["disease"]) and d in a.diseases]
+    present = [d for d in ALL_DISEASES if d in set(cases["disease"]) and d in a.diseases]
 
     write_rows(out, "cases_weekly.json", {"generated_at": now, "data_as_of": as_of}, "rows", cases)
     write_rows(out, "alerts.json", {"generated_at": now}, "rows", alerts)
