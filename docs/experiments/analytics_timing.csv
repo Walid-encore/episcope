@@ -141,3 +141,7 @@ run_at,stage,engine,seconds,rows,series
 2026-10-26T02:31:40,forecast,spark,156.04,66560,256
 2026-10-26T02:49:58,detection_ears_c2,spark,29.68,67072,256
 2026-10-26T02:52:34,forecast,spark,154.63,66560,256
+2026-10-26T14:42:45,detection_ears_c2,spark,32.35,67072,256
+2026-10-26T14:44:19,forecast,spark,92.8,66560,256
+2026-10-26T14:52:32,detection_ears_c2,spark,28.1,67072,256
+2026-10-26T14:54:16,forecast,spark,101.88,66560,256
