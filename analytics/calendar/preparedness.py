@@ -162,12 +162,21 @@ def build_calendar(cases, districts, year, frac, min_amp, lead_supplies, lead_ca
     return pd.DataFrame(cal), pd.DataFrame(prof)
 
 
+def target_year(last_week_start):
+    """Year the calendar covers: the ISO year of the week after the last data week, or the next year if
+    that week is already past ISO week 4. Data ending in late December or early January therefore gives
+    the year just starting, not the one after it."""
+    nxt = pd.Timestamp(last_week_start) + pd.Timedelta(days=7)
+    y, w = int(nxt.isocalendar().year), int(nxt.isocalendar().week)
+    return y if w <= 4 else y + 1
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--gold", default=str(ROOT / "data" / "gold_csv"))
     ap.add_argument("--districts", default=str(ROOT / "data" / "reference" / "districts.csv"))
     ap.add_argument("--year", type=int, default=None,
-                    help="target year; default = latest ISO year in the data + 1")
+                    help="target year; default = first year ahead of the data (see target_year)")
     ap.add_argument("--frac", type=float, default=0.5)
     ap.add_argument("--min-amplitude", type=float, default=0.2)
     ap.add_argument("--min-strength", type=float, default=0.5)
@@ -180,7 +189,7 @@ def main():
     from analytics.forecast.prep import prepare_cases
     cases = prepare_cases(cases)
     if a.year is None:
-        a.year = int(cases["week_start_date"].dt.isocalendar().year.max()) + 1
+        a.year = target_year(cases["week_start_date"].max())
     dis = pd.read_csv(a.districts, dtype={"district_code": str})
     cal, prof = build_calendar(cases, dis, a.year, a.frac, a.min_amplitude, a.lead_supplies, a.lead_campaign,
                              a.min_strength)
