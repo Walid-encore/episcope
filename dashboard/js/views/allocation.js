@@ -16,6 +16,8 @@ export function mountAllocation(el, data, store, tooltip) {
   const root = d3.select(el);
   const scenarios = { live: data.allocation, peak: data.allocation_peak ?? null };
   const live = scenarios.live;
+  const act = () => scenarios[store.get().scenario] ?? live;   // each scenario has its own budget/alpha lists
+  const nearest = (arr, v) => arr.reduce((b, x) => (Math.abs(x - v) < Math.abs(b - v) ? x : b));
   const cache = {};
   const build = a => ({
     grid: new Map(a.rows.map(r => [`${r.strategy}|${r.budget_level}|${r.alpha}|${r.district_code}|${r.resource}`, r])),
@@ -42,10 +44,10 @@ export function mountAllocation(el, data, store, tooltip) {
   const selRes = lab("Resource").append("select").on("change", ev => store.set({ resource: ev.target.value }));
   (resources.length ? resources : Object.keys(RES)).forEach(r => selRes.append("option").attr("value", r).text(RES[r] ?? r));
   const bLab = lab("Budget").append("input").attr("type", "range").attr("min", 0).attr("max", live.budget_levels.length - 1)
-    .attr("step", 1).on("input", ev => store.set({ budget: live.budget_levels[+ev.target.value] }));
+    .attr("step", 1).on("input", ev => store.set({ budget: act().budget_levels[+ev.target.value] }));
   const bTxt = bar.append("span").attr("class", "val");
   const aLab = lab("Equity floor α").append("input").attr("type", "range").attr("min", 0).attr("max", live.alpha_values.length - 1)
-    .attr("step", 1).on("input", ev => store.set({ alpha: live.alpha_values[+ev.target.value] }));
+    .attr("step", 1).on("input", ev => store.set({ alpha: act().alpha_values[+ev.target.value] }));
   const aTxt = bar.append("span").attr("class", "val");
   const summary = root.append("div").attr("class", "panel-note");
   const wrap = root.append("div").attr("class", "alloc-wrap");
@@ -174,10 +176,13 @@ export function mountAllocation(el, data, store, tooltip) {
   function render(s) {
     const key = scenarios[s.scenario] ? s.scenario : "live";
     const a = scenarios[key];
+    // If this scenario's grid lacks the chosen budget/alpha, snap to the nearest available one first.
+    const sb = nearest(a.budget_levels, s.budget), sa = nearest(a.alpha_values, s.alpha);
+    if (sb !== s.budget || sa !== s.alpha) { store.set({ budget: sb, alpha: sa }); return; }
     if (selScen) selScen.property("value", key);
     selRes.property("value", s.resource);
-    bLab.property("value", live.budget_levels.indexOf(s.budget));
-    aLab.property("value", live.alpha_values.indexOf(s.alpha));
+    bLab.attr("max", a.budget_levels.length - 1).property("value", a.budget_levels.indexOf(s.budget));
+    aLab.attr("max", a.alpha_values.length - 1).property("value", a.alpha_values.indexOf(s.alpha));
     bTxt.text(`${s.budget}% of full need`);
     aTxt.text(`α = ${s.alpha}`);
 
