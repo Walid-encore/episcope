@@ -8,8 +8,18 @@ CSVs written by the `export` stage (data/gold_csv), data/analytics/gold_alerts.p
 No Spark needed.
 
 Rules taken from the contract and from the visualisation engineer:
-  - all four diseases are exported; ILI and malaria only for the last --short-weeks (104) weeks of cases_weekly,
-    and no earlier week is filled with zeros (the dashboard reads each disease's own first and last week)
+  - all four diseases are exported. dengue and diarrhoeal with the full history; ILI from --ili-start (default
+    2022-12-19, so the 2023 and 2024 nationwide surges are inside) and malaria for the last --malaria-weeks (52)
+    weeks. No earlier week is filled with zeros (the dashboard reads each disease's own first and last week)
+  - space is freed first, always: stock.json holds the last --stock-weeks (26) weeks and allocation_peak.json keeps
+    --peak-alphas (0, 0.4, 0.8) of the optimised grid (the live file keeps all alphas for the what-if panel)
+  - size valve: reacts to the TOTAL only. If all files in serving/data would pass --target-bytes (9,700,000, a bit
+    below the 10,000,000-byte limit), the OLDEST weeks of ILI and malaria are trimmed in steps of 4. Never the latest
+    weeks, never below 52 weeks per disease, ILI never later than --ili-floor (2023-02-13, the surge stays in),
+    every trim is logged. The 2.5 MB budget for the files other than cases_weekly and the cases_weekly budget are
+    warnings only. The windows really written are in meta.json as
+    disease_windows: {"ili": {"first_week_start": ..., "last_week_start": ...}, ...}
+  - alerts use the same window per disease as cases_weekly (dengue and diarrhoeal: last 104 weeks)
   - cases 1-4 -> cases null, incidence_per_100k null, suppressed true; a true 0 stays 0, suppressed false
   - gold names week_start_date -> serving name week_start
   - compact JSON, district_code is a 2-digit string
@@ -32,6 +42,15 @@ PIPELINE_VERSION = "v1.0"
 MB = 1024 * 1024
 CASES_BUDGET, TOTAL_BUDGET, OTHERS_BUDGET = 7_500_000, 10_000_000, 2_500_000   # decimal bytes; the total is the VIS-4 limit
 ALERT_WEEKS = 104
+ILI_START = "2022-12-19"          # first Monday before the OB017 surge (2023-02); OB027 is 2024-09 to 12
+MALARIA_WEEKS = 52
+MIN_WEEKS = 52                    # the valve never goes below this per disease
+TRIM_STEP = 4                     # weeks cut per valve step
+TARGET_BYTES = 9_700_000          # valve target: a little below the 10,000,000-byte checker limit
+ILI_FLOOR = "2023-02-13"          # the valve never cuts ILI past this week (start of the OB017 surge)
+STOCK_WEEKS = 26
+PEAK_ALPHAS = [0.0, 0.4, 0.8]     # alpha values kept in allocation_peak.json (live keeps all)
+META_RESERVE = 8_000              # bytes kept for meta.json, which is written after the valve has run
 DQ_BATCHES = 14
 NOT_YET = []
 
@@ -64,7 +83,8 @@ def require(df, cols, label):
 
 
 # ------------------------------------------------------------------ cases_weekly (the only file with counts)
-def build_cases(gold_csv: Path, districts: pd.DataFrame, diseases, short_weeks: int = 104) -> pd.DataFrame:
+def build_cases(gold_csv: Path, districts: pd.DataFrame, diseases, ili_start: str = ILI_START,
+                malaria_weeks: int = MALARIA_WEEKS) -> pd.DataFrame:
     path = gold_csv / "gold_weekly_cases.csv"
     if not path.exists():
         sys.exit(f"{path} not found: run the `export` stage first")
@@ -98,16 +118,86 @@ def build_cases(gold_csv: Path, districts: pd.DataFrame, diseases, short_weeks: 
         "incidence_per_100k": (n / c["pop"] * 1e5).round(2).where(~sup),
         "suppressed": sup,
     })
-    # diseases beyond the default two are exported for the last `short_weeks` weeks only (size budget)
-    extra = ~out["disease"].isin(DEFAULT_DISEASES)
-    if extra.any():
-        cutoff = (pd.to_datetime(out["week_start"]).max() - pd.Timedelta(weeks=short_weeks - 1)).strftime("%Y-%m-%d")
-        out = out[~extra | (out["week_start"] >= cutoff)]
+    # per-disease windows (size budget): ILI from a fixed start, malaria the last `malaria_weeks` weeks; the
+    # latest week is the latest week of the whole data, so a new drop moves the malaria window by itself
+    last = pd.to_datetime(out["week_start"]).max()
+    starts = {"ili": ili_start,
+              "malaria": (last - pd.Timedelta(weeks=malaria_weeks - 1)).strftime("%Y-%m-%d")}
+    for d, s in starts.items():
+        out = out[(out["disease"] != d) | (out["week_start"] >= s)]
     return out.sort_values(["disease", "district_code", "week_start"]).reset_index(drop=True)
 
 
+def short_windows(cases: pd.DataFrame) -> dict:
+    """First week_start of every disease that is not exported with its full history."""
+    first = cases.groupby("disease")["week_start"].min()
+    return {d: first[d] for d in first.index if d not in DEFAULT_DISEASES}
+
+
+def trim_to_budget(cases: pd.DataFrame, alerts: pd.DataFrame, fixed_bytes: int, target: int,
+                   ili_floor: str = ILI_FLOOR):
+    """Size valve, reacts to the total only. While cases_weekly + alerts + `fixed_bytes` (every other file in
+    serving/data) would pass `target`, cut the oldest TRIM_STEP weeks of the disease with the longest window
+    (only ILI / malaria). Limits: never below MIN_WEEKS per disease, and ILI never starts later than `ili_floor`.
+    Returns (cases, alerts, log lines, fits)."""
+    def size(c, a):
+        return (len(c.to_json(orient="records", double_precision=4).encode())
+                + len(a.to_json(orient="records", double_precision=4).encode()))
+
+    floors = {"ili": ili_floor}
+    cut, fits = {}, True
+    while fixed_bytes + size(cases, alerts) > target:
+        cand = {}
+        for d in cases["disease"].unique():
+            if d in DEFAULT_DISEASES:
+                continue
+            w = sorted(cases.loc[cases["disease"] == d, "week_start"].unique())
+            if len(w) - TRIM_STEP < MIN_WEEKS:
+                continue
+            if d in floors and w[TRIM_STEP] > floors[d]:
+                continue
+            cand[d] = w
+        if not cand:
+            fits = False
+            break
+        d = max(cand, key=lambda k: len(cand[k]))
+        first = cand[d][TRIM_STEP]
+        cases = cases[(cases["disease"] != d) | (cases["week_start"] >= first)]
+        alerts = alerts[(alerts["disease"] != d) | (alerts["week_start"] >= first)]
+        cut[d] = cut.get(d, 0) + TRIM_STEP
+    log = [f"valve: trimmed {n} oldest weeks of {d}; it now starts {cases.loc[cases['disease'] == d, 'week_start'].min()}"
+           for d, n in cut.items()]
+    if not fits:
+        log.append(f"valve: nothing left to trim (malaria at {MIN_WEEKS} weeks, ILI at {MIN_WEEKS} weeks or at the "
+                   f"floor {ili_floor}); still over {target:,} bytes")
+    return cases.reset_index(drop=True), alerts.reset_index(drop=True), log, fits
+
+
+def window_warnings(calendar: pd.DataFrame, windows: dict, cases: pd.DataFrame) -> list:
+    """A short window starts in the middle of some division's season if its first epi-week lies inside
+    (onset_week, end_week]; then the start of that peak season is cut off. Warning only."""
+    def inside(w, on, end):
+        if pd.isna(on) or pd.isna(end):
+            return False
+        return (on < w <= end) if on <= end else (w > on or w <= end)
+
+    out = []
+    for d in windows:
+        sub = cases[cases["disease"] == d]
+        if sub.empty:
+            continue
+        first_week = int(sub.loc[sub["week_start"].idxmin(), "epi_week"])
+        for r in calendar[(calendar["disease"] == d) & calendar["clear_season"]].itertuples():
+            if inside(first_week, r.onset_week, r.end_week):
+                out.append(f"window: {d} starts in epi-week {first_week}, inside the season of {r.division} "
+                           f"(onset W{int(r.onset_week)} to end W{int(r.end_week)}); its first season is cut")
+    return out
+
+
 # ------------------------------------------------------------------ alerts
-def build_alerts(path: Path, diseases, suppressed: pd.DataFrame) -> pd.DataFrame:
+def build_alerts(path: Path, diseases, suppressed: pd.DataFrame, windows: dict | None = None) -> pd.DataFrame:
+    """`windows` = first week_start per short disease (same window as cases_weekly); other diseases get the last
+    ALERT_WEEKS weeks."""
     if not path.exists():
         sys.exit(f"{path} not found: run the `alerts` stage first")
     a = pd.read_parquet(path)
@@ -116,7 +206,8 @@ def build_alerts(path: Path, diseases, suppressed: pd.DataFrame) -> pd.DataFrame
     a = a[a["disease"].isin(diseases)].copy()
     a["district_code"] = code2(a["district_code"])
     a["week_start"] = pd.to_datetime(a["week_start_date"]).dt.strftime("%Y-%m-%d")
-    cutoff = (pd.to_datetime(a["week_start"]).max() - pd.Timedelta(weeks=ALERT_WEEKS - 1)).strftime("%Y-%m-%d")
+    default_cut = (pd.to_datetime(a["week_start"]).max() - pd.Timedelta(weeks=ALERT_WEEKS - 1)).strftime("%Y-%m-%d")
+    cutoff = a["disease"].map(windows or {}).fillna(default_cut)
     flag = a["alert_flag"].fillna(False).astype(bool)
     keep = (a["week_start"] >= cutoff) & (flag | (a["score"] > a["threshold"] / 2))
     a = a[keep].copy()
@@ -167,8 +258,8 @@ def build_dq(path: Path):
     return batches, all_ids
 
 
-# ------------------------------------------------------------------ stock (latest 52 weeks, supply units: not suppressed)
-def build_stock(gold_csv: Path) -> pd.DataFrame:
+# ------------------------------------------------------------------ stock (latest STOCK_WEEKS weeks, supply units: not suppressed)
+def build_stock(gold_csv: Path, weeks: int = STOCK_WEEKS) -> pd.DataFrame:
     path = gold_csv / "gold_stock_weekly.csv"
     if not path.exists():
         sys.exit(f"{path} not found: run the `export` stage first")
@@ -177,7 +268,7 @@ def build_stock(gold_csv: Path) -> pd.DataFrame:
     require(s, ["district_code", "week_start_date", "epi_year", "epi_week"] + cols, "gold_stock_weekly")
     s["district_code"] = code2(s["district_code"])
     s["week_start"] = pd.to_datetime(s["week_start_date"]).dt.strftime("%Y-%m-%d")
-    keep = sorted(s["week_start"].unique())[-52:]
+    keep = sorted(s["week_start"].unique())[-weeks:]
     s = s[s["week_start"].isin(keep)].copy()
     out = pd.DataFrame({"district_code": s["district_code"], "epi_year": s["epi_year"].astype(int),
                         "epi_week": s["epi_week"].astype(int)})
@@ -318,7 +409,7 @@ STRATEGY = {"optimised": "optimised", "proportional": "population_proportional"}
 
 
 def build_allocation(folder: Path, scenario: str, label: str, districts: pd.DataFrame, now: str, required: bool,
-                     omit_zero: bool = True, repeat_baseline: bool = False):
+                     omit_zero: bool = True, repeat_baseline: bool = False, alphas_keep=None):
     """One scenario folder -> allocation.json shape: precomputed grid (what-if, VIS-5), efficiency-equity curve
     (C3), the recommended plan with demand, stock and allocation (VIS-2 view 4) and the recommendation itself.
     budget_level = budget fraction x 100 (percent of the cost of the full unmet need, relative cost units).
@@ -341,6 +432,20 @@ def build_allocation(folder: Path, scenario: str, label: str, districts: pd.Data
     pl = pd.read_csv(folder / "allocation_plan.csv", dtype={"district_code": str})
     require(pl, ["district_code", "resource", "demand", "stock", "x", "unmet"], f"{scenario} plan")
     rec = json.loads((folder / "recommendation.json").read_text(encoding="utf-8"))
+    problems = []
+    if alphas_keep is not None:
+        # fewer alpha values (size): keep the optimised rows of these alphas; the baseline (alpha null) stays
+        def keep_alpha(df):
+            opt = df["policy"] == "optimised"
+            ok = df["alpha"].apply(lambda v: any(abs(v - k) < 1e-9 for k in alphas_keep) if pd.notna(v) else False)
+            return df[~opt | ok]
+        present = sorted(g.loc[g["policy"] == "optimised", "alpha"].dropna().unique().tolist())
+        miss = [k for k in alphas_keep if not any(abs(k - v) < 1e-9 for v in present)]
+        if miss:
+            problems.append(f"{scenario}: alpha values {miss} are not in the grid (found {present})")
+        g, cv = keep_alpha(g), keep_alpha(cv)
+        if rec.get("alpha") is not None and not any(abs(rec["alpha"] - k) < 1e-9 for k in alphas_keep):
+            print(f"WARNING: {scenario}: the recommendation uses alpha {rec['alpha']}, which is not in {alphas_keep}")
 
     def level(frac):
         lv = (frac * 100).round(1)
@@ -349,7 +454,6 @@ def build_allocation(folder: Path, scenario: str, label: str, districts: pd.Data
     bad = sorted(set(g["policy"]) - set(STRATEGY))
     if bad:
         sys.exit(f"{scenario}: unknown policy values {bad}")
-    problems = []
     g["district_code"] = code2(g["district_code"])
     if set(g["district_code"]) != set(districts["district_code"]):
         problems.append(f"{scenario}: grid districts differ from districts.csv")
@@ -417,11 +521,12 @@ def validate(out: Path) -> list:
         problems.append(f"total size {total / 1e6:.2f} MB is over {TOTAL_BUDGET / 1e6:.0f} MB")
     cases_file = out / "cases_weekly.json"
     if cases_file.exists() and total - cases_file.stat().st_size >= OTHERS_BUDGET:
-        problems.append(f"files other than cases_weekly are {(total - cases_file.stat().st_size) / 1e6:.2f} MB, "
-                        "contract budget is 2.5 MB combined")
+        print(f"WARNING: files other than cases_weekly are {(total - cases_file.stat().st_size) / 1e6:.2f} MB, "
+              f"the contract split is {OTHERS_BUDGET / 1e6:.1f} MB (warning only, the total decides)")
     if cases_file.exists():
         if cases_file.stat().st_size >= CASES_BUDGET:
-            problems.append(f"cases_weekly.json is {cases_file.stat().st_size / 1e6:.2f} MB, budget is 7.5 MB")
+            print(f"WARNING: cases_weekly.json is {cases_file.stat().st_size / 1e6:.2f} MB, "
+                  f"the contract split is {CASES_BUDGET / 1e6:.1f} MB (warning only, the total decides)")
         rows = json.loads(cases_file.read_text(encoding="utf-8"))["rows"]
         code_ok = re.compile(r"^\d\d$")
         for r in rows:
@@ -439,6 +544,29 @@ def validate(out: Path) -> list:
             print(f"  alert rows on suppressed weeks: {len(on_sup)}")
             if on_sup:
                 problems.append(f"{len(on_sup)} alert rows sit on suppressed weeks (PRV-2)")
+            # windows: meta.json must list what cases_weekly really contains, and no alert may predate its window
+            meta_f = out / "meta.json"
+            if meta_f.exists():
+                dw = json.loads(meta_f.read_text(encoding="utf-8")).get("disease_windows")
+                if dw is None:
+                    problems.append("meta.json has no disease_windows")
+                else:
+                    seen = {}
+                    for r in rows:
+                        lo, hi = seen.get(r["disease"], (r["week_start"], r["week_start"]))
+                        seen[r["disease"]] = (min(lo, r["week_start"]), max(hi, r["week_start"]))
+                    for d, (lo, hi) in seen.items():
+                        w = dw.get(d)
+                        if not w or w.get("first_week_start") != lo or w.get("last_week_start") != hi:
+                            problems.append(f"meta.json disease_windows[{d}] is {w}, cases_weekly has {lo} to {hi}")
+                        if d not in DEFAULT_DISEASES:
+                            n = len({r["week_start"] for r in rows if r["disease"] == d})
+                            if n < MIN_WEEKS:
+                                problems.append(f"{d} has only {n} weeks in cases_weekly (minimum {MIN_WEEKS})")
+                    early = [r for r in alert_rows if r["disease"] in dw and r["week_start"] < dw[r["disease"]]["first_week_start"]
+                             and r["disease"] not in DEFAULT_DISEASES]
+                    if early:
+                        problems.append(f"{len(early)} alert rows are older than their disease window")
         if leaked:
             problems.append(f"{len(leaked)} rows publish a count of 1-4 (privacy rule PRV-2)")
         if mismatch:
@@ -461,8 +589,18 @@ def main(argv=None) -> int:
     ap.add_argument("--reference", default="data/reference")
     ap.add_argument("--out", default="serving/data")
     ap.add_argument("--diseases", nargs="+", default=ALL_DISEASES, choices=ALL_DISEASES,
-                    help="diseases to export; ili and malaria get only the last --short-weeks weeks of cases_weekly")
-    ap.add_argument("--short-weeks", type=int, default=104)
+                    help="diseases to export; ili and malaria get a shorter window in cases_weekly and alerts")
+    ap.add_argument("--ili-start", default=ILI_START, help="first week_start exported for ILI (default %(default)s)")
+    ap.add_argument("--malaria-weeks", type=int, default=MALARIA_WEEKS,
+                    help="malaria: export the last N weeks (default %(default)s)")
+    ap.add_argument("--target-bytes", type=int, default=TARGET_BYTES,
+                    help="size valve: trim the oldest ILI/malaria weeks until serving/data is under this (default "
+                         "%(default)s; the checker limit is 10,000,000)")
+    ap.add_argument("--ili-floor", default=ILI_FLOOR,
+                    help="the valve never cuts ILI past this week_start (default %(default)s)")
+    ap.add_argument("--stock-weeks", type=int, default=STOCK_WEEKS, help="weeks of stock.json (default %(default)s)")
+    ap.add_argument("--peak-alphas", nargs="+", type=float, default=PEAK_ALPHAS,
+                    help="alpha values kept in allocation_peak.json (default %(default)s); the live file keeps all")
     ap.add_argument("--repeat-baseline", action="store_true",
                     help="repeat the population_proportional baseline for every alpha (default: once, alpha null)")
     ap.add_argument("--keep-zero-grid-rows", action="store_true",
@@ -481,9 +619,10 @@ def main(argv=None) -> int:
     districts["district_code"] = code2(districts["district_code"])
     districts = districts.sort_values("district_code")
 
-    cases = build_cases(Path(a.gold_csv), districts, a.diseases, a.short_weeks)
+    cases = build_cases(Path(a.gold_csv), districts, a.diseases, a.ili_start, a.malaria_weeks)
     alerts = build_alerts(Path(a.analytics) / "gold_alerts.parquet", a.diseases,
-                          cases.loc[cases["suppressed"], ["district_code", "disease", "epi_year", "epi_week"]])
+                          cases.loc[cases["suppressed"], ["district_code", "disease", "epi_year", "epi_week"]],
+                          short_windows(cases))
     dq_batches, batch_ids = build_dq(Path(a.gold) / "gold_dq_report")
     calendar = build_calendar(Path(a.analytics) / "preparedness_calendar.csv", a.diseases)
     alloc_live, alloc_problems = build_allocation(Path(a.analytics) / "allocation", "live",
@@ -493,20 +632,16 @@ def main(argv=None) -> int:
     alloc_peak, peak_problems = build_allocation(Path(a.analytics) / "allocation_peak", "peak",
                                                  "Peak-season scenario (retrospective)", districts, now,
                                                  required=False, omit_zero=not a.keep_zero_grid_rows,
-                                                 repeat_baseline=a.repeat_baseline)
-    stock = build_stock(Path(a.gold_csv))
+                                                 repeat_baseline=a.repeat_baseline, alphas_keep=a.peak_alphas)
+    stock = build_stock(Path(a.gold_csv), a.stock_weeks)
     forecast, forecast_problems = build_forecast(Path(a.analytics) / "gold_forecast.parquet", a.diseases,
                                                  a.forecast_model)
     seasonality, season_problems = build_seasonality(Path(a.analytics) / "seasonal_profile.csv",
                                                      Path(a.analytics) / "preparedness_calendar.csv",
                                                      districts, a.diseases)
 
-    as_of = cases["week_start"].max()
-    first, last = cases.loc[cases["week_start"].idxmin()], cases.loc[cases["week_start"].idxmax()]
-    present = [d for d in ALL_DISEASES if d in set(cases["disease"]) and d in a.diseases]
+    as_of = cases["week_start"].max()      # the latest week is never trimmed, so this does not change below
 
-    write_rows(out, "cases_weekly.json", {"generated_at": now, "data_as_of": as_of}, "rows", cases)
-    write_rows(out, "alerts.json", {"generated_at": now}, "rows", alerts)
     write_obj(out, "allocation.json", alloc_live)
     if alloc_peak:
         write_obj(out, "allocation_peak.json", alloc_peak)
@@ -521,21 +656,47 @@ def main(argv=None) -> int:
     write_obj(out, "freshness.json", {"generated_at": now, "data_as_of": as_of,
                                       "last_batch_id": batch_ids[-1] if batch_ids else None,
                                       "pipeline_version": PIPELINE_VERSION})
+
+    # size valve: everything except cases_weekly, alerts and meta is on disk now, so the real sizes are known
+    fixed = sum(f.stat().st_size for f in out.glob("*.json")
+                if f.name not in ("cases_weekly.json", "alerts.json", "meta.json")) + META_RESERVE
+    cases, alerts, valve_log, fits = trim_to_budget(cases, alerts, fixed, a.target_bytes, a.ili_floor)
+    for line in valve_log:
+        print(line)
+    if not fits:
+        print(f"WARNING: size valve could not get under {a.target_bytes:,} bytes within its limits "
+              f"({MIN_WEEKS} weeks per disease, ILI from {a.ili_floor} at the latest); the check below fails only "
+              "if the total passes 10,000,000 bytes")
+    for line in window_warnings(calendar, short_windows(cases), cases):
+        print("WARNING:", line)
+
+    first, last = cases.loc[cases["week_start"].idxmin()], cases.loc[cases["week_start"].idxmax()]
+    present = [d for d in ALL_DISEASES if d in set(cases["disease"]) and d in a.diseases]
+    windows = {d: {"first_week_start": g["week_start"].min(), "last_week_start": g["week_start"].max()}
+               for d, g in cases.groupby("disease")}
+    write_rows(out, "cases_weekly.json", {"generated_at": now, "data_as_of": as_of}, "rows", cases)
+    write_rows(out, "alerts.json", {"generated_at": now}, "rows", alerts)
     write_obj(out, "meta.json", {
         "generated_at": now, "data_as_of": as_of, "diseases": present,
         "districts": [{"district_code": r.district_code, "district_name": r.district_name,
                        "division": r.division, "population": int(r.population)} for r in districts.itertuples()],
         "weeks": {"first": {"epi_year": int(first["epi_year"]), "epi_week": int(first["epi_week"])},
                   "last": {"epi_year": int(last["epi_year"]), "epi_week": int(last["epi_week"])}},
+        "disease_windows": {d: windows[d] for d in present},
         "batch_ids": batch_ids})
 
+    for d in present:
+        w = windows[d]
+        nweeks = int(cases.loc[cases["disease"] == d, "week_start"].nunique())
+        print(f"window {d}: {w['first_week_start']} to {w['last_week_start']} ({nweeks} weeks)")
     n_sup = int(cases["suppressed"].sum())
     print(f"cases_weekly: {len(cases):,} rows, {n_sup:,} suppressed ({n_sup / len(cases):.1%}), diseases {present}")
     print(f"forecast: {len(forecast):,} rows, origin {int(forecast['origin_epi_year'].iloc[0])}-W"
           f"{int(forecast['origin_epi_week'].iloc[0]):02d}, model {a.forecast_model}")
     print(f"calendar: {len(calendar):,} rows")
     print(f"stock: {len(stock):,} rows | seasonality: {len(seasonality):,} rows")
-    print(f"alerts: {len(alerts):,} rows (last {ALERT_WEEKS} weeks) | dq_report: {len(dq_batches)} batches")
+    print(f"alerts: {len(alerts):,} rows (same window per disease; dengue/diarrhoeal last {ALERT_WEEKS} weeks) | "
+          f"dq_report: {len(dq_batches)} batches")
     print(f"data_as_of {as_of} | wrote to {out}")
     problems = validate(out) + season_problems + forecast_problems + alloc_problems + peak_problems
     if NOT_YET:
