@@ -37,8 +37,9 @@ export function mountAllocation(el, data, store, tooltip) {
   let selScen = null;
   if (scenarios.peak) {
     selScen = lab("Scenario").append("select").on("change", ev => store.set({ scenario: ev.target.value }));
-    selScen.append("option").attr("value", "live").text(live.scenario_label ?? "Current (live)");
-    selScen.append("option").attr("value", "peak").text(scenarios.peak.scenario_label ?? "Peak season");
+    // Short names in the dropdown; the full scenario_label from the file is shown in the summary line.
+    selScen.append("option").attr("value", "live").attr("title", live.scenario_label ?? "").text("Current (live) allocation");
+    selScen.append("option").attr("value", "peak").attr("title", scenarios.peak.scenario_label ?? "").text("Peak season (replay)");
   }
   const resources = [...new Set((live.plan ?? []).map(p => p.resource))];
   const selRes = lab("Resource").append("select").on("change", ev => store.set({ resource: ev.target.value }));

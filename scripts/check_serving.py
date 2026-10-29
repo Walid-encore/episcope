@@ -85,6 +85,13 @@ if ac:
     (bad if badnull else ok)(f"alpha null only on population_proportional rows (violations: {len(badnull)})")
     print(f"       budgets {ac.get('budget_levels')}, alphas {ac.get('alpha_values')}, unit {ac.get('budget_unit')}")
 
+dq = load("dq_report")
+if dq:
+    off = [b["batch_id"] for b in dq["batches"] if b["rows_out"] + b["rows_quarantined"] != b["rows_in"]]
+    (bad if off else ok)(f"dq_report: rows_in = rows_out + rows_quarantined for every batch (mismatches: {off})")
+    low = [(b["batch_id"], r["reason_code"]) for b in dq["batches"] for r in b["rules"] if not 0 <= r["pass_rate"] <= 1]
+    (bad if low else ok)(f"dq_report: pass rates within 0..1 (violations: {len(low)})")
+
 for name in ("seasonality", "stock", "dq_report", "calendar"):
     x = load(name)
     if x: ok(f"{name}.json loads ({len(x.get('rows', x.get('batches', [])))} entries)")

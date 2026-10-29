@@ -5,6 +5,7 @@ import { mountTimeSeries } from "./views/timeseries.js";
 import { mountWarnings } from "./views/warnings.js";
 import { mountAllocation } from "./views/allocation.js";
 import { mountSeasonal } from "./views/seasonal.js";
+import { mountDq } from "./views/dq.js";
 
 const tip = document.getElementById("tooltip");
 const tooltip = {
@@ -67,7 +68,8 @@ try {
   mountWarnings(document.getElementById("warnings"), data, store);
   mountSeasonal(document.getElementById("seasonal"), data, store, tooltip);
   if (A) mountAllocation(document.getElementById("allocation"), data, store, tooltip);
-  else document.getElementById("allocation").insertAdjacentHTML("afterbegin", "<p class='panel-note'>allocation.json not found in " + BASE + "</p>");
+  mountDq(document.getElementById("dq"), data);
+  if (!A) document.getElementById("allocation").insertAdjacentHTML("afterbegin", "<p class='panel-note'>allocation.json not found in " + BASE + "</p>");
   store.set({}); // initial notify so labels render
 } catch (e) {
   const err = document.getElementById("error");

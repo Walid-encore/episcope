@@ -61,3 +61,8 @@ table.warn td.empty { color:var(--muted); text-align:center; cursor:default; pad
 #seasonal { grid-column: 1 / -1; }
 .sea { max-width:100%; }
 table.warn tbody tr.selected td { font-weight:600; }
+
+/* DQ-2 panel */
+#dq { grid-column: 1 / -1; }
+.dqbar { display:inline-block; width:90px; height:9px; background:rgba(127,127,127,.25); vertical-align:middle; border-radius:2px; overflow:hidden; }
+.dqbar > span { display:block; height:100%; background:#D55E00; }
