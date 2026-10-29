@@ -26,10 +26,25 @@ export function mountWarnings(el, data, store) {
       .filter(a => a.disease === s.disease && a.week_start === week)
       .sort((a, b) => (SEV_ORDER[a.severity] ?? 9) - (SEV_ORDER[b.severity] ?? 9) || b.score - a.score);
 
-    note.text(`${s.disease} · week of ${week} · ${rows.length} district${rows.length === 1 ? "" : "s"} ` +
-      `on the list (alerts, plus watch-list districts above half the threshold)`);
+    // PRV-3: in the district role, show the own district in detail and the others only as division aggregates.
+    let list = rows;
+    if (s.role === "district") {
+      const own = rows.filter(a => a.district_code === s.roleDistrict);
+      const byDiv = d3.group(rows.filter(a => a.district_code !== s.roleDistrict),
+        a => data.districtInfo.get(a.district_code)?.division ?? "Unknown");
+      const agg = [...byDiv].map(([division, rs]) => ({
+        aggregate: true, key: "agg:" + division, division, n: rs.length, nAlert: rs.filter(a => a.alert_flag).length,
+        severity: rs.map(a => a.severity).filter(Boolean).sort((p, q) => SEV_ORDER[p] - SEV_ORDER[q])[0] ?? null,
+      })).sort((p, q) => (SEV_ORDER[p.severity] ?? 9) - (SEV_ORDER[q.severity] ?? 9) || q.nAlert - p.nAlert);
+      list = [...own, ...agg];
+    }
 
-    if (!rows.length) {
+    note.text(s.role === "district"
+      ? `${s.disease} · week of ${week} · own district in detail; other districts only as division aggregates`
+      : `${s.disease} · week of ${week} · ${rows.length} district${rows.length === 1 ? "" : "s"} ` +
+        `on the list (alerts, plus watch-list districts above half the threshold)`);
+
+    if (!list.length) {
       const latest = (data.alerts?.rows ?? []).filter(a => a.disease === s.disease && a.alert_flag)
         .map(a => a.week_start).sort().at(-1);
       const idx = latest ? data.weeks.indexOf(latest) : -1;
@@ -45,13 +60,18 @@ export function mountWarnings(el, data, store) {
     }
 
     // The key function also runs on existing rows; the empty-state row carries null data, so guard it.
-    tbody.selectAll("tr").data(rows, a => (a ? a.district_code : "__empty__")).join("tr")
+    tbody.selectAll("tr").data(list, a => (a ? (a.aggregate ? a.key : a.district_code) : "__empty__")).join("tr")
       .attr("tabindex", 0)
-      .classed("selected", a => a.district_code === s.district)
-      .attr("aria-selected", a => a.district_code === s.district)
-      .on("click", (_, a) => select(a.district_code))
-      .on("keydown", (ev, a) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(a.district_code); } })
+      .classed("selected", a => !a.aggregate && a.district_code === s.district)
+      .attr("aria-selected", a => !a.aggregate && a.district_code === s.district)
+      .on("click", (_, a) => { if (!a.aggregate) select(a.district_code); })
+      .on("keydown", (ev, a) => { if (!a.aggregate && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); select(a.district_code); } })
       .html((a, i) => {
+        if (a.aggregate) {
+          return `<td>${i + 1}</td><td>Other districts</td><td>${a.division}</td>` +
+            `<td><span class="sev sev-${a.severity ?? "none"}">${SEV_MARK[a.severity] ?? ""}</span> ${a.severity ?? "—"} (highest)</td>` +
+            `<td>—</td><td>${a.n} on the list, ${a.nAlert} alert${a.nAlert === 1 ? "" : "s"} (aggregate)</td><td>—</td>`;
+        }
         const info = data.districtInfo.get(a.district_code);
         const c = data.cases.get(`${s.disease}|${week}|${a.district_code}`);
         const cases = !c ? "no data" : c.suppressed ? "suppressed (&lt;5)" : c.cases;

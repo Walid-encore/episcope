@@ -62,7 +62,7 @@ export function mountAllocation(el, data, store, tooltip) {
     `Demand is modelled for dengue and diarrhoeal supplies only (ILI and malaria have no unit costs yet).`);
 
   // ---------- bars ----------
-  const W1 = 640, H1 = 540, ML = 104, MR = 16, MT = 44, MB = 40;
+  const W1 = 640, H1 = 540, ML = 128, MR = 16, MT = 44, MB = 40;
   function drawBars(s, key, a) {
     const I = ix(key);
     svg1.attr("viewBox", `0 0 ${W1} ${H1}`); svg1.selectAll("*").remove();
@@ -77,13 +77,30 @@ export function mountAllocation(el, data, store, tooltip) {
       const sel = plan.find(p => p.district_code === s.district);
       if (sel) top[top.length - 1] = sel;
     }
-    const items = top.map(p => {
+    const calc = p => {
       const o = alloc(key, "optimised", s.budget, s.alpha, p.district_code, s.resource);
       const b = alloc(key, "population_proportional", s.budget, null, p.district_code, s.resource);
       return { code: p.district_code, demand: p.demand, stock: p.stock,
                opt: o ? o.allocated_units : null, optUnmet: o ? o.unmet_demand : null,
                base: b ? b.allocated_units : null, baseUnmet: b ? b.unmet_demand : null };
-    });
+    };
+    let items;
+    if (s.role === "district") {
+      // PRV-3: own district in detail, every other district only as its division's aggregate.
+      const own = plan.find(p => p.district_code === s.roleDistrict);
+      const groups = d3.group(plan.filter(p => p.district_code !== s.roleDistrict),
+        p => data.districtInfo.get(p.district_code)?.division ?? "Unknown");
+      const sumN = (rs, k) => (rs.some(r => r[k] === null || r[k] === undefined) ? null : d3.sum(rs, r => r[k]));
+      const agg = [...groups].map(([division, ps]) => {
+        const rs = ps.map(calc);
+        return { code: "agg:" + division, aggregate: true, division, label: `${division} · others`,
+                 demand: d3.sum(rs, r => r.demand), stock: d3.sum(rs, r => r.stock),
+                 opt: sumN(rs, "opt"), optUnmet: sumN(rs, "optUnmet"), base: sumN(rs, "base"), baseUnmet: sumN(rs, "baseUnmet") };
+      }).sort((p, q) => q.demand - p.demand);
+      items = [...(own ? [calc(own)] : []), ...agg];
+    } else {
+      items = top.map(calc);
+    }
     const xmax = d3.max(items, d => d3.max([d.demand, d.stock, d.opt, d.base])) || 1;
     const x = d3.scaleLinear().domain([0, xmax]).nice().range([ML, W1 - MR]);
     const y = d3.scaleBand(items.map(d => d.code), [MT, H1 - MB]).paddingInner(0.18);
@@ -99,20 +116,20 @@ export function mountAllocation(el, data, store, tooltip) {
     });
 
     const tip = d => {
-      const info = data.districtInfo.get(d.code);
-      return `<b>${info?.district_name ?? d.code}</b>${info ? " (" + info.division + ")" : ""}<br>` +
+      const info = d.aggregate ? null : data.districtInfo.get(d.code);
+      return `<b>${d.label ?? info?.district_name ?? d.code}</b>${info ? " (" + info.division + ")" : ""}<br>` +
         `Forecast demand: ${fmt(d.demand)}<br>Current stock: ${fmt(d.stock)}<br>` +
         `Optimised allocation: ${fmt(d.opt)} (unmet ${fmt(d.optUnmet)})<br>` +
         `Population-proportional: ${fmt(d.base)} (unmet ${fmt(d.baseUnmet)})`;
     };
     items.forEach(d => {
       const g = svg1.append("g").attr("transform", `translate(0,${y(d.code)})`).style("cursor", "pointer")
-        .on("click", () => store.set({ district: store.get().district === d.code ? null : d.code }))
+        .on("click", () => { if (!d.aggregate) store.set({ district: store.get().district === d.code ? null : d.code }); })
         .on("mousemove", ev => tooltip.show(ev, tip(d))).on("mouseleave", () => tooltip.hide());
       g.append("rect").attr("x", 2).attr("width", W1 - 4).attr("height", y.bandwidth())
         .attr("fill", d.code === s.district ? "var(--accent)" : "transparent").attr("fill-opacity", 0.18);
       g.append("text").attr("x", ML - 6).attr("y", y.bandwidth() / 2 + 4).attr("text-anchor", "end")
-        .attr("font-weight", d.code === s.district ? 700 : 400).text(data.districtInfo.get(d.code)?.district_name ?? d.code);
+        .attr("font-weight", d.code === s.district ? 700 : 400).text(d.label ?? data.districtInfo.get(d.code)?.district_name ?? d.code);
       KEYS.forEach(k => {
         if (d[k] === null || d[k] === undefined) return;
         g.append("rect").attr("x", ML).attr("y", yi(k)).attr("height", yi.bandwidth())

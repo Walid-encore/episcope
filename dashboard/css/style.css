@@ -66,3 +66,7 @@ table.warn tbody tr.selected td { font-weight:600; }
 #dq { grid-column: 1 / -1; }
 .dqbar { display:inline-block; width:90px; height:9px; background:rgba(127,127,127,.25); vertical-align:middle; border-radius:2px; overflow:hidden; }
 .dqbar > span { display:block; height:100%; background:#D55E00; }
+
+/* PRV-3 role view */
+.role-note { color:var(--muted); font-size:11px; max-width:560px; }
+.district.own { stroke:var(--fg); stroke-width:2.5; }

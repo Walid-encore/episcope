@@ -15,6 +15,9 @@
     <label>Disease <select id="disease"></select></label>
     <label>Week <input id="week" type="range" min="0" max="0" value="0"> <span id="weekLabel"></span></label>
     <span id="selection"></span>
+    <label>Role <select id="role"><option value="national">National (all districts)</option><option value="district">District officer (demo)</option></select></label>
+    <label id="roleWrap" hidden>District <select id="roleDist"></select></label>
+    <span id="roleNote" class="role-note"></span>
   </section>
   <main>
     <div id="choropleth" class="panel"></div>

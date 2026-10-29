@@ -34,6 +34,12 @@ try {
   });
   const nearest = (arr, v) => arr.reduce((b, x) => (Math.abs(x - v) < Math.abs(b - v) ? x : b));
 
+  // PRV-3 guard: in the district role, selecting any other district is ignored.
+  const guard = (patch, s) => {
+    const role = patch.role ?? s.role, own = "roleDistrict" in patch ? patch.roleDistrict : s.roleDistrict;
+    if (role === "district" && patch.district && patch.district !== own) { const { district, ...rest } = patch; return rest; }
+    return patch;
+  };
   const store = createStore({
     district: null,
     disease: data.meta.diseases[0],
@@ -45,7 +51,9 @@ try {
     resource: A ? ([...new Set((A.plan ?? []).map(p => p.resource))][0] ?? "iv_saline_units") : null,
     budget: A ? nearest(A.budget_levels, (A.recommendation?.budget_frac ?? 0.5) * 100) : null,
     alpha: A ? nearest(A.alpha_values, A.recommendation?.recommended_alpha ?? 0) : null,
-  });
+    role: "national",
+    roleDistrict: null,
+  }, guard);
 
   const dSel = document.getElementById("disease");
   data.meta.diseases.forEach(d => dSel.add(new Option(d, d)));
@@ -61,6 +69,27 @@ try {
     const info = data.districtInfo.get(s.district);
     sel.innerHTML = info ? `Selected: <b>${info.district_name}</b> <button class="link" id="clr">clear</button>` : "";
     if (info) document.getElementById("clr").onclick = () => store.set({ district: null });
+  });
+
+  // Role view (PRV-3)
+  const roleSel = document.getElementById("role"), roleWrap = document.getElementById("roleWrap");
+  const roleDist = document.getElementById("roleDist"), roleNote = document.getElementById("roleNote");
+  [...data.meta.districts].sort((a, b) => a.district_name.localeCompare(b.district_name))
+    .forEach(d => roleDist.add(new Option(`${d.district_name} (${d.division})`, d.district_code)));
+  roleSel.onchange = () => {
+    if (roleSel.value === "district") {
+      const code = store.get().district ?? roleDist.value;
+      store.set({ role: "district", roleDistrict: code, district: code });
+    } else store.set({ role: "national", roleDistrict: null });
+  };
+  roleDist.onchange = () => store.set({ roleDistrict: roleDist.value, district: roleDist.value });
+  store.subscribe(s => {
+    roleSel.value = s.role; roleWrap.hidden = s.role !== "district";
+    if (s.roleDistrict) roleDist.value = s.roleDistrict;
+    roleNote.textContent = s.role === "district"
+      ? "Demo role view: other districts appear only as division aggregates. This hides detail in the browser only; " +
+        "real access control must be enforced on the server."
+      : "";
   });
 
   mountChoropleth(document.getElementById("choropleth"), data, store, tooltip);

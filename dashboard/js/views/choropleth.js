@@ -53,6 +53,27 @@ export function mountChoropleth(el, data, store, tooltip) {
     const w = data.diseaseWindow?.get(s.disease), wk = data.weeks[s.week];
     return !!w && (wk < w[0] || wk > w[1]);
   };
+  // PRV-3: in the district role, other districts are drawn as their division's aggregate (own district excluded).
+  // An aggregate needs at least MIN_AGG districts with published counts, otherwise it could equal one district's count.
+  const MIN_AGG = 2;
+  const isOther = (code, s) => s.role === "district" && code !== s.roleDistrict;
+  let aggKey = "", aggMap = new Map();
+  function getAgg(s) {
+    const key = `${s.disease}|${s.week}|${s.roleDistrict}`;
+    if (key === aggKey) return aggMap;
+    aggKey = key; aggMap = new Map();
+    for (const f of data.geo.features) {
+      const c = f.properties.district_code;
+      if (c === s.roleDistrict) continue;
+      const r = rowFor(c, s);
+      if (!r || r.suppressed || r.cases === null) continue;
+      const o = aggMap.get(f.properties.division) ?? { cases: 0, pop: 0, n: 0, inc: null };
+      o.cases += r.cases; o.pop += data.districtInfo.get(c)?.population ?? 0; o.n++;
+      aggMap.set(f.properties.division, o);
+    }
+    for (const o of aggMap.values()) o.inc = o.n >= MIN_AGG && o.pop > 0 ? (o.cases / o.pop) * 1e5 : null;
+    return aggMap;
+  }
   const rowFor = (code, s) => data.cases.get(`${s.disease}|${data.weeks[s.week]}|${code}`);
   const alertSet = s => new Set((data.alerts?.rows ?? [])
     .filter(a => a.alert_flag && a.disease === s.disease && a.week_start === data.weeks[s.week])
@@ -60,6 +81,12 @@ export function mountChoropleth(el, data, store, tooltip) {
 
   function tipHtml(f) {
     const s = store.get(), code = f.properties.district_code, r = rowFor(code, s);
+    if (isOther(code, s)) {
+      const a = getAgg(s).get(f.properties.division);
+      return `<b>${f.properties.division} division</b> (other districts, aggregate)<br>` +
+        (a && a.inc !== null ? `${a.inc.toFixed(2)} per 100,000<br>district detail hidden in this role`
+                             : "aggregate not available (fewer than 2 districts with published counts)");
+    }
     const name = `<b>${f.properties.district_name}</b> (${f.properties.division})`;
     if (!r) return outside(s) ? `${name}<br>not exported for this disease before ${data.diseaseWindow.get(s.disease)[0]}` : `${name}<br>no data for this week`;
     if (r.suppressed) return `${name}<br>suppressed (fewer than 5 cases)`;
@@ -75,13 +102,19 @@ export function mountChoropleth(el, data, store, tooltip) {
     lgMax.text(`${max.toFixed(1)}+`); lgMin.text("0");
 
     paths.attr("fill", f => {
+      if (isOther(f.properties.district_code, s)) {
+        const a = getAgg(s).get(f.properties.division);
+        return a && a.inc !== null ? color(a.inc) : (outside(s) ? "#c9d3e0" : "#bdbdbd");
+      }
       const r = rowFor(f.properties.district_code, s);
       if (!r) return outside(s) ? "#c9d3e0" : "#bdbdbd";
       if (r.suppressed) return "url(#hatch)";
       return color(r.incidence_per_100k);
-    }).classed("selected", f => f.properties.district_code === s.district);
+    }).attr("fill-opacity", f => (isOther(f.properties.district_code, s) ? 0.8 : 1))
+      .classed("selected", f => f.properties.district_code === s.district)
+      .classed("own", f => s.role === "district" && f.properties.district_code === s.roleDistrict);
 
-    const alerts = [...alertSet(s)].filter(c => centroid.has(c));
+    const alerts = [...alertSet(s)].filter(c => centroid.has(c) && !isOther(c, s));   // others' alerts are not shown in detail
     markers.selectAll("circle").data(alerts, c => c).join("circle")
       .attr("r", 5).attr("fill", "#111").attr("stroke", "#fff").attr("stroke-width", 1.5)
       .attr("pointer-events", "none")
