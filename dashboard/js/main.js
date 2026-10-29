@@ -6,6 +6,7 @@ import { mountWarnings } from "./views/warnings.js";
 import { mountAllocation } from "./views/allocation.js";
 import { mountSeasonal } from "./views/seasonal.js";
 import { mountDq } from "./views/dq.js";
+import { mountWhatIf } from "./views/whatif.js";
 
 const tip = document.getElementById("tooltip");
 const tooltip = {
@@ -53,11 +54,12 @@ try {
     alpha: A ? nearest(A.alpha_values, A.recommendation?.recommended_alpha ?? 0) : null,
     role: "national",
     roleDistrict: null,
+    threshold: null,             // detection threshold what-if; null = pipeline default
   }, guard);
 
   const dSel = document.getElementById("disease");
   data.meta.diseases.forEach(d => dSel.add(new Option(d, d)));
-  dSel.onchange = () => store.set({ disease: dSel.value });
+  dSel.onchange = () => store.set({ disease: dSel.value, threshold: null });
 
   const wInp = document.getElementById("week");
   wInp.oninput = () => store.set({ week: +wInp.value });
@@ -95,6 +97,7 @@ try {
   mountChoropleth(document.getElementById("choropleth"), data, store, tooltip);
   mountTimeSeries(document.getElementById("timeseries"), data, store, tooltip);
   mountWarnings(document.getElementById("warnings"), data, store);
+  mountWhatIf(document.getElementById("whatif"), data, store);
   mountSeasonal(document.getElementById("seasonal"), data, store, tooltip);
   if (A) mountAllocation(document.getElementById("allocation"), data, store, tooltip);
   mountDq(document.getElementById("dq"), data);

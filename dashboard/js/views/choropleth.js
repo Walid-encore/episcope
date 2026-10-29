@@ -1,5 +1,6 @@
 // View 1 (VIS-2): district choropleth of incidence per 100,000 with alert markers.
 // Encodings: sequential YlOrRd (colour-blind-safe); hatch = suppressed; plain grey = no data.
+import { isAlert } from "../alerts.js";
 const W = 700, H = 760;
 
 export function mountChoropleth(el, data, store, tooltip) {
@@ -76,7 +77,7 @@ export function mountChoropleth(el, data, store, tooltip) {
   }
   const rowFor = (code, s) => data.cases.get(`${s.disease}|${data.weeks[s.week]}|${code}`);
   const alertSet = s => new Set((data.alerts?.rows ?? [])
-    .filter(a => a.alert_flag && a.disease === s.disease && a.week_start === data.weeks[s.week])
+    .filter(a => isAlert(data, a, s) && a.disease === s.disease && a.week_start === data.weeks[s.week])
     .map(a => a.district_code));
 
   function tipHtml(f) {

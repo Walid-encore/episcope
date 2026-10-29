@@ -3,6 +3,7 @@
 // Strip: alert score vs. threshold (different units from cases, so shown separately).
 // Context chart: d3.brushX sets store.range = [firstWeekIdx, lastWeekIdx].
 // No district selected -> national total (non-suppressed districts only).
+import { isAlert, effectiveThreshold } from "../alerts.js";
 const W = 900, H = 490, M = { l: 52, r: 20 };
 const F = { t: 40, b: 250 }, S = { t: 282, b: 328 }, C = { t: 372, b: 420 };
 const WEEK_MS = 7 * 864e5;
@@ -163,7 +164,7 @@ export function mountTimeSeries(el, data, store, tooltip) {
     h += o.nodata ? "no data" : o.sup ? "suppressed (fewer than 5 cases)" : `${o.v} cases`;
     if (o.nsup) h += `<br>${o.nsup} suppressed districts excluded from total`;
     const a = cur.alerts.get(w);
-    if (a) h += `<br>alert score ${a.score} (threshold ${a.threshold})` + (a.reporting_artefact_flag ? "<br>possible reporting artefact" : "");
+    if (a) h += `<br>alert score ${a.score} (threshold ${effectiveThreshold(data, a.disease, store.get())})` + (a.reporting_artefact_flag ? "<br>possible reporting artefact" : "");
     return h;
   }
 
@@ -209,13 +210,13 @@ export function mountTimeSeries(el, data, store, tooltip) {
 
     // alert strip
     const al = [...alerts.values()].filter(a => { const d = utc(a.week_start); return d >= dates[i0] && d <= dates[i1]; });
-    const thr = [...alerts.values()][0]?.threshold ?? null;
+    const thr = effectiveThreshold(data, s.disease, s) ?? null;
     const ys = d3.scaleLinear().domain([0, Math.max(thr ? thr * 1.5 : 1, d3.max(al, a => a.score) || 0) * 1.1]).range([S.b, S.t]);
     gSy.call(d3.axisLeft(ys).ticks(3));
     gS.selectAll("rect").data(al, a => a.week_start).join("rect")
       .attr("x", a => x(utc(a.week_start)) - bw / 2).attr("width", bw)
       .attr("y", a => ys(a.score)).attr("height", a => S.b - ys(a.score))
-      .attr("fill", a => a.reporting_artefact_flag ? "url(#hatchTS)" : a.alert_flag ? "#d95f02" : "#9e9e9e")
+      .attr("fill", a => a.reporting_artefact_flag ? "url(#hatchTS)" : isAlert(data, a, s) ? "#d95f02" : "#9e9e9e")
       .attr("stroke", a => a.reporting_artefact_flag ? "#d95f02" : null);
     thrLine.attr("display", thr === null ? "none" : null)
       .attr("x1", M.l).attr("x2", W - M.r).attr("y1", thr === null ? 0 : ys(thr)).attr("y2", thr === null ? 0 : ys(thr));

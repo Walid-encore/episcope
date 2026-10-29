@@ -70,3 +70,12 @@ table.warn tbody tr.selected td { font-weight:600; }
 /* PRV-3 role view */
 .role-note { color:var(--muted); font-size:11px; max-width:560px; }
 .district.own { stroke:var(--fg); stroke-width:2.5; }
+
+/* VIS-5 what-if panel */
+#whatif { margin:0 20px 16px; max-width:none; }
+.whatif-out { display:flex; flex-wrap:wrap; gap:12px; padding:4px 6px; }
+.wcard { flex:1 1 280px; border:1px solid var(--line); border-radius:6px; padding:8px 12px; }
+.wcard h3 { margin:0 0 4px; font-size:13px; }
+.wcard p { margin:3px 0; font-size:12px; }
+.wcard .big { font-size:22px; font-weight:600; margin:2px 0; }
+.wcard .big small { font-size:11px; font-weight:400; color:var(--muted); }

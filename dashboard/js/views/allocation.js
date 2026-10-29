@@ -16,7 +16,6 @@ export function mountAllocation(el, data, store, tooltip) {
   const root = d3.select(el);
   const scenarios = { live: data.allocation, peak: data.allocation_peak ?? null };
   const live = scenarios.live;
-  const act = () => scenarios[store.get().scenario] ?? live;   // each scenario has its own budget/alpha lists
   const nearest = (arr, v) => arr.reduce((b, x) => (Math.abs(x - v) < Math.abs(b - v) ? x : b));
   const cache = {};
   const build = a => ({
@@ -44,12 +43,6 @@ export function mountAllocation(el, data, store, tooltip) {
   const resources = [...new Set((live.plan ?? []).map(p => p.resource))];
   const selRes = lab("Resource").append("select").on("change", ev => store.set({ resource: ev.target.value }));
   (resources.length ? resources : Object.keys(RES)).forEach(r => selRes.append("option").attr("value", r).text(RES[r] ?? r));
-  const bLab = lab("Budget").append("input").attr("type", "range").attr("min", 0).attr("max", live.budget_levels.length - 1)
-    .attr("step", 1).on("input", ev => store.set({ budget: act().budget_levels[+ev.target.value] }));
-  const bTxt = bar.append("span").attr("class", "val");
-  const aLab = lab("Equity floor α").append("input").attr("type", "range").attr("min", 0).attr("max", live.alpha_values.length - 1)
-    .attr("step", 1).on("input", ev => store.set({ alpha: act().alpha_values[+ev.target.value] }));
-  const aTxt = bar.append("span").attr("class", "val");
   const summary = root.append("div").attr("class", "panel-note");
   const wrap = root.append("div").attr("class", "alloc-wrap");
   const svg1 = wrap.append("svg").attr("class", "ts bars").attr("role", "img")
@@ -199,10 +192,6 @@ export function mountAllocation(el, data, store, tooltip) {
     if (sb !== s.budget || sa !== s.alpha) { store.set({ budget: sb, alpha: sa }); return; }
     if (selScen) selScen.property("value", key);
     selRes.property("value", s.resource);
-    bLab.attr("max", a.budget_levels.length - 1).property("value", a.budget_levels.indexOf(s.budget));
-    aLab.attr("max", a.alpha_values.length - 1).property("value", a.alpha_values.indexOf(s.alpha));
-    bTxt.text(`${s.budget}% of full need`);
-    aTxt.text(`α = ${s.alpha}`);
 
     const rec = a.recommendation;
     const o = a.curve?.find(c => c.strategy === "optimised" && c.budget_level === s.budget && c.alpha === s.alpha);

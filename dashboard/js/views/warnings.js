@@ -1,6 +1,7 @@
 // View 5 (VIS-2, VIS-3): ranked early-warning table.
 // Shows alerts.json rows for the selected disease and week, sorted by severity, then score.
 // Clicking a row (or pressing Enter on it) selects that district in the shared state.
+import { isAlert, effectiveThreshold } from "../alerts.js";
 const SEV_ORDER = { high: 0, medium: 1, low: 2 };
 const SEV_MARK = { high: "▲▲▲", medium: "▲▲", low: "▲" };   // shape + text, never colour alone
 
@@ -33,7 +34,7 @@ export function mountWarnings(el, data, store) {
       const byDiv = d3.group(rows.filter(a => a.district_code !== s.roleDistrict),
         a => data.districtInfo.get(a.district_code)?.division ?? "Unknown");
       const agg = [...byDiv].map(([division, rs]) => ({
-        aggregate: true, key: "agg:" + division, division, n: rs.length, nAlert: rs.filter(a => a.alert_flag).length,
+        aggregate: true, key: "agg:" + division, division, n: rs.length, nAlert: rs.filter(a => isAlert(data, a, s)).length,
         severity: rs.map(a => a.severity).filter(Boolean).sort((p, q) => SEV_ORDER[p] - SEV_ORDER[q])[0] ?? null,
       })).sort((p, q) => (SEV_ORDER[p.severity] ?? 9) - (SEV_ORDER[q.severity] ?? 9) || q.nAlert - p.nAlert);
       list = [...own, ...agg];
@@ -45,7 +46,7 @@ export function mountWarnings(el, data, store) {
         `on the list (alerts, plus watch-list districts above half the threshold)`);
 
     if (!list.length) {
-      const latest = (data.alerts?.rows ?? []).filter(a => a.disease === s.disease && a.alert_flag)
+      const latest = (data.alerts?.rows ?? []).filter(a => a.disease === s.disease && isAlert(data, a, s))
         .map(a => a.week_start).sort().at(-1);
       const idx = latest ? data.weeks.indexOf(latest) : -1;
       tbody.selectAll("tr").data([null]).join("tr").attr("class", null).attr("tabindex", null).attr("aria-selected", null)
@@ -75,12 +76,12 @@ export function mountWarnings(el, data, store) {
         const info = data.districtInfo.get(a.district_code);
         const c = data.cases.get(`${s.disease}|${week}|${a.district_code}`);
         const cases = !c ? "no data" : c.suppressed ? "suppressed (&lt;5)" : c.cases;
-        const status = (a.alert_flag ? "Alert" : "Below alert threshold") +
+        const status = (isAlert(data, a, s) ? "Alert" : "Below alert threshold") +
           (a.reporting_artefact_flag ? " · possible reporting artefact" : "");
         return `<td>${i + 1}</td><td>${info ? info.district_name : a.district_code}</td>` +
           `<td>${info ? info.division : ""}</td>` +
           `<td><span class="sev sev-${a.severity ?? "none"}">${SEV_MARK[a.severity] ?? ""}</span> ${a.severity ?? "—"}</td>` +
-          `<td>${a.score} / ${a.threshold}</td><td>${status}</td><td>${cases}</td>`;
+          `<td>${a.score} / ${effectiveThreshold(data, a.disease, s)}</td><td>${status}</td><td>${cases}</td>`;
       });
   }
 
