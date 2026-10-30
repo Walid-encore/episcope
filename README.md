@@ -14,28 +14,55 @@ Big-data surveillance, forecasting and response-planning platform for seasonal a
 ```
 make all
 ```
-`make all` runs `pipeline.run_all` (bronze -> silver -> gold), exports gold to CSV (`data/gold_csv`) and then the whole
-analytics run. Pinned dependencies are in `requirements.txt`.
-Analytics only, on existing gold CSV (no flags needed):
-```
-python -m analytics.run_all
-```
-This runs detection, forecast + demand, backtest summary, allocation, the peak-season allocation scenarios with
-sensitivity (`--skip-scenarios` to omit, about 1 minute), and the preparedness calendar. Outputs go to `data/analytics/`.
-Nothing is hard-coded: dates, week ranges and the stock cut-off come from the data.
-`--gold` must point at the folder holding `gold_weekly_cases.csv` (the CSV export, `data/gold_csv`), not the parquet folder.
-Ground-truth evaluation for the report is separate (`make evaluate`) and is not part of the delivery run.
+`make all` runs `pipeline.run_all` (generate -> bronze -> silver -> gold -> contract -> catalog -> export -> alerts ->
+demand -> allocate -> scenarios -> calendar -> serve), exports gold to CSV (`data/gold_csv`) and then the whole
+analytics run. The `serve` stage writes the dashboard data to `serving/data/` (about 9 MB, small counts suppressed).
+Every stage prints its time; a summary table at the end lists them. Options of `python -m pipeline.run_all`:
+`--only STAGE` (one stage), `--retries N`, `--regenerate` (rebuild the synthetic data; skipped when `data/incoming`
+exists) and `--evaluate` (ground-truth evaluation, not part of the delivery run). Pinned dependencies are in
+`requirements.txt`. Dashboard (from the repository root): `python -m http.server 8000`, then open
+http://localhost:8000/dashboard/index.html.
 
 ## Hidden 14-day test drop
-<!-- FILL IN: where the drop is placed (e.g. data/incoming/...), then the command(s) to ingest it. -->
-1. Place the drop files in the incoming folders using the same schema.
-2. Run the one-command run above. Ingestion is idempotent, so re-running a day creates no duplicates.
-3. Alerts, forecast, demand, allocation and sensitivity regenerate in `data/analytics/`.
+The drop is ingested without any code change and without hard-coded dates, file names or row counts.
+1. Copy the drop's files into `data/incoming/`, keeping the layout of the generator output:
+   `encounters/batch_week=YYYY-MM-DD/part-*.csv` and `stock/batch_week=YYYY-MM-DD/stock_*.jsonl`.
+2. Run the one-command run again: `make all`. The `generate` stage is skipped because `data/incoming` exists.
+3. What happens:
+   - **bronze** loads only the new files (the log line reads `found N files | new X | already loaded Y`); every file is
+     registered with source, load time, batch ID and checksum, so re-running a day creates no duplicates (ING-4).
+   - **silver** applies the quality rules, sends failing rows to the quarantine tables with a reason code, drops
+     duplicate records and rewrites the epi-weeks touched by late records (`epi-weeks rewritten N`).
+   - **gold**, **alerts**, **demand** (forecast), **allocate**, **calendar** and **serve** are regenerated, so
+     `data/analytics/` and `serving/data/` reflect the new last week. `serving/data/meta.json` lists the window per
+     disease (`disease_windows`) and `data_as_of`, which move with the data.
+4. Check: `python scripts/check_serving.py` ends with `RESULT: all checks passed`.
+
+To rehearse it with our generator (same seed, so the increment is a slice of the same run):
+```
+Copy-Item data\reference data_drop\reference -Recurse
+python -m generator.generate --sf 0.05 --end 2026-01-14 --report-from 2026-01-01 --report-to 2026-01-14 --out-dir data_drop
+Copy-Item data_drop\incoming\* data\incoming\ -Recurse -Force
+make all
+```
+Use the same `--sf` as the data in `data/` (default 0.05). Running `make all` a second time without new files changes nothing.
 
 ## Architecture
 Medallion lakehouse: bronze (raw, immutable) -> silver (clean, de-identified, quarantine) -> gold (epi-week marts) ->
 analytics (detection, forecast, demand, allocation, calendar) -> serving (suppressed JSON) -> D3.js dashboard.
-<!-- FILL IN: one paragraph on storage, orchestration and the dashboard command (e.g. python -m http.server). -->
+**Storage.** The lake is Parquet on the local file system, partitioned by epi-week, with a Spark SQL catalog
+(`data/catalog`, tables `bronze.*`, `silver.*`, `gold.*`). Spark runs in local mode; pandas is used only for small
+reference data and the final aggregated exports. **Orchestration.** `pipeline/run_all.py` is a small DAG runner with
+per-stage retries, timings and a summary, driven by the `Makefile`; the contract stage fails the run if a gold table has
+missing columns or bad keys. **Privacy.** Raw patient IDs exist only in bronze; silver holds salted hashes (the salt is
+in `.env`, never committed), and the serving export suppresses every count from 1 to 4 and drops alert rows on
+suppressed weeks (PRV-2). **Serving and dashboard.** `pipeline/serving_export.py` writes eleven small JSON files to
+`serving/data/`; the total must stay under 10 MB, and a size valve shortens the oldest ILI and malaria weeks if it
+would not (every trim is logged; ILI never starts later than 2023-02-13). The windows (ILI from 2022-12-19, malaria the
+last 52 weeks) only limit how much history the dashboard files hold; they are options of the exporter, not of the
+ingestion or the analytics. The D3.js v7 dashboard in `dashboard/` is static and reads only these files, never
+line-level data.
+
 
 ## Requirement traceability
 | ID | Where | Report section |
