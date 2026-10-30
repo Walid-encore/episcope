@@ -8,6 +8,9 @@ hidden test drop, documents what it ran on. Exit code 1 if a hard check fails.
 
 What it can prove: the gold CSV is not a fixture or sample folder, is not byte-identical to any tests/fixtures file,
 equals the real gold parquet (rows and sums), and weather and population are complete and physically plausible.
+Weather may end a few days before the last case week (a 14-day drop is reported faster than the weather archive
+is extended): the demand stage clips to the last weather week, so a trailing gap of up to --max-weather-gap-days
+(default 28) is a note, not a failure. Weather missing at the start, or a longer gap, still fails.
 What it cannot prove: that weather really came from Open-Meteo or population from the census. Those are declared in
 docs/ and the fetch script; this check only shows the numbers behave like the real thing.
 """
@@ -21,7 +24,13 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
+MAX_WEATHER_GAP_DAYS = 28      # two 14-day drops; the demand stage clips to the last weather week
 checks, failed = [], []
+
+
+def trailing_weather_gap_days(weather_end, last_case_week):
+    """Days by which the weather ends before the first day of the last case week (0 if it covers it)."""
+    return max(0, int((pd.Timestamp(last_case_week) - pd.Timestamp(weather_end)).days))
 
 
 def check(ok, name, detail=""):
@@ -46,6 +55,8 @@ def main():
     ap.add_argument("--weather", default=str(ROOT / "data" / "reference" / "weather.csv"))
     ap.add_argument("--districts", default=str(ROOT / "data" / "reference" / "districts.csv"))
     ap.add_argument("--stock-dir", default=str(ROOT / "data" / "incoming" / "stock"))
+    ap.add_argument("--max-weather-gap-days", type=int, default=MAX_WEATHER_GAP_DAYS,
+                    help="weather may end at most this many days before the last case week (default %(default)s)")
     ap.add_argument("--out", default=str(ROOT / "data" / "analytics" / "input_provenance.json"))
     a = ap.parse_args()
     man = {"checked_at": time.strftime("%Y-%m-%d %H:%M:%S")}
@@ -106,8 +117,15 @@ def main():
                           "dates": f"{w['date'].min().date()} to {w['date'].max().date()}"}
         check(set(dis["district_code"].str.zfill(2)) <= set(w["district_code"]), "weather covers every district")
         check(not w.duplicated(["district_code", "date"]).any(), "no duplicate district-day rows")
-        check(w["date"].min() <= g["week_start_date"].min() and w["date"].max() >= g["week_start_date"].max(),
-              "weather covers every case week", f"weather {w['date'].min().date()} to {w['date'].max().date()}")
+        gap = trailing_weather_gap_days(w["date"].max(), g["week_start_date"].max())
+        man["weather"]["trailing_gap_days"] = gap
+        check(w["date"].min() <= g["week_start_date"].min() and gap <= a.max_weather_gap_days,
+              "weather covers every case week",
+              f"weather {w['date'].min().date()} to {w['date'].max().date()}"
+              + (f"; ends {gap} days before the last case week, allowed up to {a.max_weather_gap_days}" if gap else ""))
+        if 0 < gap <= a.max_weather_gap_days:
+            print(f"    note: the last case week starts {gap} days after the last weather day; the demand stage "
+                  "clips to the last weather week")
         check(w[["precip_mm", "temp_mean_c", "humidity_pct"]].isna().mean().max() < 0.01, "under 1% missing values")
         check(w["precip_mm"].between(0, 1000).all() and w["temp_mean_c"].between(0, 45).all()
               and w["humidity_pct"].between(0, 100).all(), "values within physical ranges")
