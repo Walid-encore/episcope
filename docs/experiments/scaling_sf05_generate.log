@@ -1,0 +1,9 @@
+﻿[    0.4s] model built: 709 facilities, 34 outbreaks, 2 reporting artefacts
+[    0.4s] wrote data\reference\facilities.csv and truth/
+[    4.4s] wrote stock snapshots: 1,303,735 JSON lines
+[    4.8s] work tables: 489,253 day/district/disease cells -> 12,732,228 base encounters
+ 
+26/10/30 22:33:28 WARN SparkConf: Note that spark.local.dir will be overridden by the value set by the cluster manager (via SPARK_LOCAL_DIRS in mesos/standalone/kubernetes and 
+LOCAL_DIRS in YARN).
+[  335.2s] wrote encounters to data\incoming\encounters
+[  335.9s] done

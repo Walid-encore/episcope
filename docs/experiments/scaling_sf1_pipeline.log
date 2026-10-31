@@ -1,0 +1,494 @@
+﻿
+=== generate: skipped (data/incoming already exists (use --regenerate to rebuild it)) ===
+
+=== bronze (attempt 1/2) ===
+ 
+found 528 files | new 528 | already loaded 0 | unrecognised 0 | duplicate content 0
+  districts: 1 files, 0.0 MB
+  encounters: 263 files, 2,466.4 MB
+  facilities: 1 files, 0.1 MB
+  stock: 262 files, 195.4 MB
+  weather: 1 files, 4.1 MB
+  [  16.0s] districts: 64 rows -> batch b_c24849ebdeac
+  [  52.2s] encounters: 26,076,753 rows -> batch b_03e8a96961f0
+  [  11.2s] facilities: 709 rows -> batch b_4f9e80049690
+  [  27.1s] stock: 1,303,735 rows -> batch b_09e460233614
+  [  10.7s] weather: 140,288 rows -> batch b_ff1eaec184c8
+bronze done in 128.5s
+
+=== silver (attempt 1/2) ===
+26/10/30 23:20:52 WARN SparkStringUtils: Truncated the string representation of a plan since it was too large. This behavior can be adjusted by setting 
+'spark.sql.debug.maxToStringFields'.
+silver run 20261030T172012_04d799
+  [  15.6s] districts   in         64 | quarantined        0 | valid         64 | duplicates dropped       0 | replaced existing      0 | epi-weeks rewritten 0
+  [  11.7s] facilities  in        709 | quarantined        0 | valid        709 | duplicates dropped       0 | replaced existing      0 | epi-weeks rewritten 0
+  [  12.9s] weather     in    140,288 | quarantined        0 | valid    140,288 | duplicates dropped       0 | replaced existing      0 | epi-weeks rewritten 0
+  [ 255.2s] encounters  in 26,076,753 | quarantined  594,840 | valid 25,481,913 | duplicates dropped 499,986 | replaced existing      0 | epi-weeks rewritten 262
+  [  48.2s] stock       in  1,303,735 | quarantined    9,083 | valid  1,294,652 | duplicates dropped  12,951 | replaced existing      0 | epi-weeks rewritten 262
+silver done in 346.9s
+
+=== gold (attempt 1/2) ===
+onset weeks 2021-01-01 .. 2025-12-31 | report weeks 2021-01-01 .. 2025-12-31 | diseases ['dengue', 'diarrhoeal', 'ili', 'malaria']
+  gold_weekly_cases                 67,072 rows    38.2s
+  gold_weekly_cases_by_lag         335,360 rows    33.6s
+  gold_weekly_reports               67,072 rows    25.8s
+  gold_reporting_status             16,768 rows    26.2s
+  gold_weekly_weather               20,096 rows     7.7s
+  gold_stock_weekly                 16,768 rows     7.6s
+  gold_lineage                       1,310 rows     5.0s
+  gold_dq_report                        40 rows
+
+Reconciliation:
+  GOLD_LAG_SUM_EQUALS_CASES    checked     67,072  failed      0  OK
+  GOLD_CASES_EQUAL_SILVER      checked 10,837,637  failed      0  OK
+  GOLD_REPORTS_EQUAL_SILVER    checked 10,837,637  failed      0  OK
+
+Gold written to data\gold in 207.6s
+
+=== contract (attempt 1/2) ===
+gold_weekly_cases          rows   67,072 | missing - | extra - | duplicate keys 0 | null keys 0
+                           districts 64 | bad codes 0
+gold_weekly_reports        rows   67,072 | missing - | extra - | duplicate keys 0 | null keys 0
+                           districts 64 | bad codes 0
+gold_weekly_cases_by_lag   rows  335,360 | missing - | extra - | duplicate keys 0 | null keys 0
+                           districts 64 | bad codes 0
+gold_reporting_status      rows   16,768 | missing - | extra ['report_week_start_date'] | duplicate keys 0 | null keys 0
+                           districts 64 | bad codes 0
+                           completeness outside 0..1: 0 | null (warm-up): 512
+gold_weekly_weather        rows   20,096 | missing - | extra ['week_start_date', 'temp_mean_c_lag1', 'precip_sum_mm_lag1', 'temp_mean_c_lag2', 'precip_sum_mm_lag2', 'temp_mean_c_lag3', 'precip_sum_mm_lag3', 'temp_mean_c_lag4', 'precip_sum_mm_lag4', 'temp_mean_c_lag5', 'precip_sum_mm_lag5', 'temp_mean_c_lag6', 'precip_sum_mm_lag6', 'temp_mean_c_lag7', 'precip_sum_mm_lag7', 'temp_mean_c_lag8', 'precip_sum_mm_lag8', 'days_observed'] | duplicate keys 0 | null keys 0
+                           districts 64 | bad codes 0
+gold_stock_weekly          rows   16,768 | missing - | extra ['week_start_date'] | duplicate keys 0 | null keys 0
+                           districts 64 | bad codes 0
+gold_lineage               rows    1,310 | missing - | extra -
+gold_dq_report             rows       40 | missing - | extra ['dataset', 'severity', 'description', 'rows_in', 'rows_quarantined']
+silver dq_report: 37 distinct rules (DQ-1 needs >= 12)
+contract check passed
+
+=== catalog (attempt 1/2) ===
+
+
+
+table                                            rows  check
+bronze.districts                                   64  ok
+bronze.encounters                          26,076,753  ok
+bronze.facilities                                 709  ok
+bronze.stock                                1,303,735  ok
+bronze.weather                                140,288  ok
+silver.districts                                   64  ok
+silver.dq_report                                   37  ok
+silver.encounters                          24,981,927  ok
+silver.facilities                                 709  ok
+silver.quarantine_encounters                  594,840  ok
+silver.quarantine_stock                         9,083  ok
+silver.stock                                1,281,701  ok
+silver.weather                                140,288  ok
+gold.gold_dq_report                                40  ok
+gold.gold_lineage                               1,310  ok
+gold.gold_reporting_status                     16,768  ok
+gold.gold_stock_weekly                         16,768  ok
+gold.gold_weekly_cases                         67,072  ok
+gold.gold_weekly_cases_by_lag                 335,360  ok
+gold.gold_weekly_reports                       67,072  ok
+gold.gold_weekly_weather                       20,096  ok
+catalog ready: 21 tables in data/catalog (query with spark.sql, e.g. SELECT * FROM gold.gold_weekly_cases)
+
+=== export (attempt 1/2) ===
+gold_weekly_cases: 67,072 rows, 2020-12-28..2025-12-29 -> data\gold_csv\gold_weekly_cases.csv
+gold_weekly_reports: 67,072 rows, 2020-12-28..2025-12-29 -> data\gold_csv\gold_weekly_reports.csv
+gold_reporting_status: 16,768 rows, 2020-12-28..2025-12-29 -> data\gold_csv\gold_reporting_status.csv
+gold_weekly_cases_by_lag: 335,360 rows, 2020-12-28..2025-12-29 -> data\gold_csv\gold_weekly_cases_by_lag.csv
+gold_weekly_weather: 20,096 rows, 2019-12-30..2025-12-29 -> data\gold_csv\gold_weekly_weather.csv
+gold_stock_weekly: 16,768 rows, 2020-12-28..2025-12-29 -> data\gold_csv\gold_stock_weekly.csv
+
+=== alerts (attempt 1/2) ===
+[timing] detection_ears_c2 on spark: 25.7s (67,072 rows, 256 series)
+ears_c2 (usable baseline) threshold 7.0 floor 15: 67,072 weeks, 65,280 assessed, 1,792 not assessed (1,792 warm-up, 0 baseline masked), 1546 alerts, 11 above-threshold weeks suppressed as reporting artefacts
+latest report week 2025-12-29: 0 active alerts
+wrote C:\episcope_clone\episcope\data\analytics\gold_alerts.parquet
+
+=== demand (attempt 1/2) ===
+[timing] forecast on spark: 119.3s (66,560 rows, 256 series)
+forecast rows: 108,544 (2,048 live); districts with demand: 64
+                  demand  demand_q90
+resource                            
+beds              2543.5      3436.7
+iv_saline_units  19747.4     27041.1
+ns1_kits          1435.5      2301.0
+ors_sachets      99792.8    133856.0
+wrote gold_forecast, gold_demand, planning_totals to C:\episcope_clone\episcope\data\analytics
+
+=== allocate (attempt 1/2) ===
+stock: 262 files, 1,303,735 snapshot rows; 6,506 rows (0.50%) have a facility_id not in the registry and are excluded (6,226 distinct orphan ids)
+stock: 709 of 709 registry facilities have a snapshot
+stock: latest snapshot 2025-12-31, oldest snapshot used 2025-12-30 (1 days older)
+severity weights: weights: min 0.80, median 0.93, max 1.62, share != 1.0 (+-0.02): 94%, districts clipped to [0.5, 2.0] before rescale: 0
+wrote allocation_grid.csv: 6,912 rows
+{
+  "budget": 631.255,
+  "budget_frac": 0.5,
+  "recommended_alpha": 0.0,
+  "tolerance": 0.05,
+  "rule": "relative",
+  "as_of": "2025-12-31",
+  "min_cover": 0.25,
+  "min_cover_used": 0.25,
+  "transport_frac": null,
+  "transport": null,
+  "weights": "severity (from --cases)",
+  "stock_input": {
+    "snapshot_files": 262,
+    "snapshot_rows": 1303735,
+    "orphan_rows": 6506,
+    "orphan_row_share": 0.00499,
+    "distinct_orphan_ids": 6226,
+    "registry_facilities": 709,
+    "registry_facilities_with_stock": 709,
+    "latest_snapshot": "2025-12-31",
+    "oldest_snapshot_used": "2025-12-30",
+    "max_staleness_days": 1
+  },
+  "optimised": {
+    "weighted_unmet": 621.4133193712171,
+    "coverage_total": 0.5,
+    "coverage_min_district": 0.2499999999999999,
+    "coverage_gini": 0.27953342165590045
+  },
+  "proportional_baseline": {
+    "weighted_unmet": 1172.081633507037,
+    "coverage_total": 0.0876200366108304,
+    "coverage_min_district": 0.009119343977442074,
+    "coverage_gini": 0.5192825720184551
+  }
+}
+
+=== scenarios (attempt 1/2) ===
+
+$ python -m analytics.optimise.scenario_demand
+49 of 55 backtest origins have all 4 horizons for every series
+top origins by cost-weighted q90 demand:
+202527    447345.8
+202529    434717.5
+202528    431546.5
+202526    424795.4
+202530    421735.4
+
+origin 202527, stock as of 2025-07-06; national planning demand:
+                   demand  demand_q90
+resource                             
+beds               8477.3     11716.9
+iv_saline_units  118506.1    166463.8
+ns1_kits          35532.1     52609.2
+ors_sachets      474965.8    615272.0
+
+wrote C:\episcope_clone\episcope\data\analytics\planning_totals_peak.csv
+next:
+  python -m analytics.optimise.run_allocation --demand C:\episcope_clone\episcope\data\analytics\planning_totals_peak.csv --as-of 2025-07-06 --cases data\gold_csv\gold_weekly_cases.csv --out data\analytics\allocation_peak
+
+$ python -m analytics.optimise.run_allocation --demand data\analytics\planning_totals_peak.csv --as-of 2025-07-06 --cases data\gold_csv\gold_weekly_cases.csv --min-cover 0.25 --out data\analytics\allocation_peak.tmp
+stock: as of 2025-07-06: using 1,176,640 of 1,303,735 snapshot rows
+stock: 262 files, 1,176,640 snapshot rows; 5,889 rows (0.50%) have a facility_id not in the registry and are excluded (5,654 distinct orphan ids)
+stock: 709 of 709 registry facilities have a snapshot
+stock: latest snapshot 2025-07-06, oldest snapshot used 2025-07-05 (1 days older)
+severity weights: weights: min 0.80, median 0.93, max 1.62, share != 1.0 (+-0.02): 94%, districts clipped to [0.5, 2.0] before rescale: 0
+wrote allocation_grid.csv: 6,912 rows
+{
+  "budget": 190694.185,
+  "budget_frac": 0.5,
+  "recommended_alpha": 0.6,
+  "tolerance": 0.05,
+  "rule": "relative",
+  "as_of": "2025-07-06",
+  "min_cover": 0.25,
+  "min_cover_used": 0.25,
+  "transport_frac": null,
+  "transport": null,
+  "weights": "severity (from --cases)",
+  "stock_input": {
+    "snapshot_files": 262,
+    "snapshot_rows": 1176640,
+    "orphan_rows": 5889,
+    "orphan_row_share": 0.005,
+    "distinct_orphan_ids": 5654,
+    "registry_facilities": 709,
+    "registry_facilities_with_stock": 709,
+    "latest_snapshot": "2025-07-06",
+    "oldest_snapshot_used": "2025-07-05",
+    "max_staleness_days": 1
+  },
+  "optimised": {
+    "weighted_unmet": 180080.48016886046,
+    "coverage_total": 0.49999999981908205,
+    "coverage_min_district": 0.25050288409648847,
+    "coverage_gini": 0.2514681320810246
+  },
+  "proportional_baseline": {
+    "weighted_unmet": 202469.4329015158,
+    "coverage_total": 0.49991109459648575,
+    "coverage_min_district": 0.3044770945671519,
+    "coverage_gini": 0.11168271990313913
+  }
+}
+
+$ python -m analytics.optimise.run_allocation --demand data\analytics\planning_totals_peak.csv --as-of 2025-07-06 --cases data\gold_csv\gold_weekly_cases.csv --out data\analytics\allocation_peak_nofloor
+stock: as of 2025-07-06: using 1,176,640 of 1,303,735 snapshot rows
+stock: 262 files, 1,176,640 snapshot rows; 5,889 rows (0.50%) have a facility_id not in the registry and are excluded (5,654 distinct orphan ids)
+stock: 709 of 709 registry facilities have a snapshot
+stock: latest snapshot 2025-07-06, oldest snapshot used 2025-07-05 (1 days older)
+severity weights: weights: min 0.80, median 0.93, max 1.62, share != 1.0 (+-0.02): 94%, districts clipped to [0.5, 2.0] before rescale: 0
+wrote allocation_grid.csv: 6,912 rows
+{
+  "budget": 190694.185,
+  "budget_frac": 0.5,
+  "recommended_alpha": 0.6,
+  "tolerance": 0.05,
+  "rule": "relative",
+  "as_of": "2025-07-06",
+  "min_cover": 0.0,
+  "min_cover_used": 0.0,
+  "transport_frac": null,
+  "transport": null,
+  "weights": "severity (from --cases)",
+  "stock_input": {
+    "snapshot_files": 262,
+    "snapshot_rows": 1176640,
+    "orphan_rows": 5889,
+    "orphan_row_share": 0.005,
+    "distinct_orphan_ids": 5654,
+    "registry_facilities": 709,
+    "registry_facilities_with_stock": 709,
+    "latest_snapshot": "2025-07-06",
+    "oldest_snapshot_used": "2025-07-05",
+    "max_staleness_days": 1
+  },
+  "optimised": {
+    "weighted_unmet": 179967.78161773912,
+    "coverage_total": 0.5000000008259298,
+    "coverage_min_district": 0.22057383624896587,
+    "coverage_gini": 0.25782671906628796
+  },
+  "proportional_baseline": {
+    "weighted_unmet": 202469.4329015158,
+    "coverage_total": 0.49991109459648575,
+    "coverage_min_district": 0.3044770945671519,
+    "coverage_gini": 0.11168271990313913
+  }
+}
+
+$ python -m analytics.optimise.run_allocation --demand data\analytics\planning_totals_peak.csv --as-of 2025-07-06 --min-cover 0.25 --out data\analytics\allocation_peak_equalw
+stock: as of 2025-07-06: using 1,176,640 of 1,303,735 snapshot rows
+stock: 262 files, 1,176,640 snapshot rows; 5,889 rows (0.50%) have a facility_id not in the registry and are excluded (5,654 distinct orphan ids)
+stock: 709 of 709 registry facilities have a snapshot
+stock: latest snapshot 2025-07-06, oldest snapshot used 2025-07-05 (1 days older)
+severity weights: equal (no --cases)
+wrote allocation_grid.csv: 6,912 rows
+{
+  "budget": 190694.185,
+  "budget_frac": 0.5,
+  "recommended_alpha": 0.8,
+  "tolerance": 0.05,
+  "rule": "relative",
+  "as_of": "2025-07-06",
+  "min_cover": 0.25,
+  "min_cover_used": 0.25,
+  "transport_frac": null,
+  "transport": null,
+  "weights": "equal",
+  "stock_input": {
+    "snapshot_files": 262,
+    "snapshot_rows": 1176640,
+    "orphan_rows": 5889,
+    "orphan_row_share": 0.005,
+    "distinct_orphan_ids": 5654,
+    "registry_facilities": 709,
+    "registry_facilities_with_stock": 709,
+    "latest_snapshot": "2025-07-06",
+    "oldest_snapshot_used": "2025-07-05",
+    "max_staleness_days": 1
+  },
+  "optimised": {
+    "weighted_unmet": 190694.185068,
+    "coverage_total": 0.49999999982170407,
+    "coverage_min_district": 0.313396845210942,
+    "coverage_gini": 0.11986168903194765
+  },
+  "proportional_baseline": {
+    "weighted_unmet": 190728.0924869305,
+    "coverage_total": 0.49991109459648575,
+    "coverage_min_district": 0.3044770945671519,
+    "coverage_gini": 0.11168271990313913
+  }
+}
+
+$ python -m analytics.optimise.allocation_sensitivity --demand data\analytics\planning_totals_peak.csv --as-of 2025-07-06 --cases data\gold_csv\gold_weekly_cases.csv --min-cover 0.25 --out data\analytics\allocation_sensitivity
+stock: as of 2025-07-06: using 1,176,640 of 1,303,735 snapshot rows
+stock: 262 files, 1,176,640 snapshot rows; 5,889 rows (0.50%) have a facility_id not in the registry and are excluded (5,654 distinct orphan ids)
+stock: 709 of 709 registry facilities have a snapshot
+stock: latest snapshot 2025-07-06, oldest snapshot used 2025-07-05 (1 days older)
+ kappa  status  n_binding_divisions                                                   binding_divisions  unconstrained_peak_load_share  weighted_unmet  unmet_vs_unconstrained_pct  coverage_min_district
+  4.00 optimal                    0                                                                                           0.353837   177327.514010                    0.000000                  0.250
+  2.00 optimal                    0                                                                                           0.707674   177327.514010                    0.000000                  0.250
+  1.00 optimal                    2                                                   Mymensingh;Sylhet                       1.415347   178955.266062                    0.917935                  0.250
+  0.50 optimal                    4                                  Chattogram;Dhaka;Mymensingh;Sylhet                       2.830695   183899.009168                    3.705852                  0.250
+  0.25 optimal                    8 Barishal;Chattogram;Dhaka;Khulna;Mymensingh;Rajshahi;Rangpur;Sylhet                       5.661390   190021.434823                    7.158461                  0.125
+
+   changed_cost  factor budget_rule      budget  optimised_unmet  baseline_unmet  improvement_pct
+           none     1.0        frac 190694.1850    177327.514010   202469.432902        12.417637
+iv_saline_units     0.5        frac 154983.7425    143948.555787   163504.607622        11.960551
+iv_saline_units     0.5       fixed 190694.1850    107915.008523   128328.200460        15.907020
+iv_saline_units     2.0        frac 262115.0700    244085.430456   280399.083461        12.950703
+iv_saline_units     2.0       fixed 190694.1850    315618.257526   352402.828259        10.438217
+       ns1_kits     0.5        frac 156712.2850    145321.033769   165884.532278        12.396272
+       ns1_kits     0.5       fixed 190694.1850    111049.791920   132007.689937        15.876271
+       ns1_kits     2.0        frac 258657.9850    241340.474494   275639.234149        12.443352
+       ns1_kits     2.0       fixed 190694.1850    309443.081179   344127.762685        10.079013
+    ors_sachets     0.5        frac 165039.4350    154049.195470   176784.442354        12.860434
+    ors_sachets     0.5       fixed 190694.1850    127650.346536   151373.293089        15.671818
+    ors_sachets     2.0        frac 242003.6850    223884.151091   253839.413996        11.800871
+    ors_sachets     2.0       fixed 190694.1850    275095.682346   305559.610767         9.969881
+
+optimised_with evaluated_with  optimised_unmet  baseline_unmet  improvement_pct
+      severity       severity    177327.514010   202469.432902        12.417637
+      severity          equal    190694.185000   190728.092487         0.017778
+         equal       severity    196933.945164   202469.432902         2.733987
+         equal          equal    190694.185000   190728.092487         0.017778
+
+wrote data\analytics\allocation_sensitivity/ and C:\episcope_clone\episcope\docs\allocation_assumptions.md
+
+allocation scenarios done
+
+=== calendar (attempt 1/2) ===
+  division    disease  seasonal_strength  peak_index  clear_season  mean_weekly_cases  low_volume  onset_week  peak_week  end_week  prepose_supplies_week  start_campaign_week onset_date  peak_date   end_date prepose_supplies_date start_campaign_date  n_years_clear  peak_week_earliest  peak_week_latest  onset_week_earliest  prepose_supplies_week_early prepose_supplies_date_early
+  Barishal     dengue              0.780        2.37          True              280.3       False          26         35        46                     22                   18 2026-06-22 2026-08-24 2026-11-09            2026-05-25          2026-04-27              5                  34                43                   24                           20                  2026-05-11
+  Barishal diarrhoeal              0.930        1.70          True              896.7       False          18         25        37                     14                   10 2026-04-27 2026-06-15 2026-09-07            2026-03-30          2026-03-02              5                  23                32                   17                           13                  2026-03-23
+  Barishal        ili              0.646        2.21          True              773.6       False          47          6         9                     43                   39 2026-11-16 2027-02-08 2027-03-01            2026-10-19          2026-09-21              5                  51                 4                   46                           42                  2026-10-12
+  Barishal    malaria              0.876        2.10          True               32.4       False          23         31        41                     19                   15 2026-06-01 2026-07-27 2026-10-05            2026-05-04          2026-04-06              5                  25                33                   21                           17                  2026-04-20
+Chattogram     dengue              0.805        2.49          True             1315.7       False          26         29        46                     22                   18 2026-06-22 2026-07-13 2026-11-09            2026-05-25          2026-04-27              5                  28                38                   23                           19                  2026-05-04
+Chattogram diarrhoeal              0.943        1.69          True             2988.5       False          18         25        37                     14                   10 2026-04-27 2026-06-15 2026-09-07            2026-03-30          2026-03-02              5                  21                28                   17                           13                  2026-03-23
+Chattogram        ili              0.706        2.24          True             2770.2       False          47          2         9                     43                   39 2026-11-16 2027-01-11 2027-03-01            2026-10-19          2026-09-21              5                  51                 6                   46                           42                  2026-10-12
+Chattogram    malaria              0.835        2.30          True              770.9       False          23         34        41                     19                   15 2026-06-01 2026-08-17 2026-10-05            2026-05-04          2026-04-06              5                  27                34                   22                           18                  2026-04-27
+     Dhaka     dengue              0.791        2.25          True             2154.4       False          24         28        47                     20                   16 2026-06-08 2026-07-06 2026-11-16            2026-05-11          2026-04-13              5                  28                42                   23                           19                  2026-05-04
+     Dhaka diarrhoeal              0.912        1.64          True             4470.4       False          16         27        37                     12                    8 2026-04-13 2026-06-29 2026-09-07            2026-03-16          2026-02-16              5                  21                41                   16                           12                  2026-03-16
+     Dhaka        ili              0.658        2.12          True             4105.1       False          46          7         9                     42                   38 2026-11-09 2027-02-15 2027-03-01            2026-10-12          2026-09-14              5                  51                 4                   45                           41                  2026-10-05
+     Dhaka    malaria              0.925        1.91          True              172.3       False          21         34        41                     17                   13 2026-05-18 2026-08-17 2026-10-05            2026-04-20          2026-03-23              5                  27                30                   20                           16                  2026-04-13
+    Khulna     dengue              0.804        2.34          True              587.4       False          25         35        46                     21                   17 2026-06-15 2026-08-24 2026-11-09            2026-05-18          2026-04-20              5                  30                42                   23                           19                  2026-05-04
+    Khulna diarrhoeal              0.958        1.72          True             1668.8       False          18         23        38                     14                   10 2026-04-27 2026-06-01 2026-09-14            2026-03-30          2026-03-02              5                  23                27                   17                           13                  2026-03-23
+    Khulna        ili              0.671        2.15          True             1481.7       False          47          2        10                     43                   39 2026-11-16 2027-01-11 2027-03-08            2026-10-19          2026-09-21              5                  51                 5                   46                           42                  2026-10-12
+    Khulna    malaria              0.921        2.02          True               63.2       False          22         27        40                     18                   14 2026-05-25 2026-06-29 2026-09-28            2026-04-27          2026-03-30              5                  27                34                   21                           17                  2026-04-20
+Mymensingh     dengue              0.771        2.47          True              467.0       False          25         32        46                     21                   17 2026-06-15 2026-08-03 2026-11-09            2026-05-18          2026-04-20              5                  30                38                   23                           19                  2026-05-04
+Mymensingh diarrhoeal              0.937        1.76          True             1110.4       False          18         23        38                     14                   10 2026-04-27 2026-06-01 2026-09-14            2026-03-30          2026-03-02              5                  23                29                   15                           11                  2026-03-09
+Mymensingh        ili              0.680        2.32          True             1164.5       False          47         52        10                     43                   39 2026-11-16 2026-12-21 2027-03-08            2026-10-19          2026-09-21              5                  52                12                   46                           42                  2026-10-12
+Mymensingh    malaria              0.884        2.02          True             1098.1       False          21         25        40                     17                   13 2026-05-18 2026-06-15 2026-09-28            2026-04-20          2026-03-23              5                  27                34                   20                           16                  2026-04-13
+  Rajshahi     dengue              0.757        2.23          True              579.1       False          25         29        46                     21                   17 2026-06-15 2026-07-13 2026-11-09            2026-05-18          2026-04-20              5                  30                42                   23                           19                  2026-05-04
+  Rajshahi diarrhoeal              0.951        1.81          True             2198.6       False          18         28        37                     14                   10 2026-04-27 2026-07-06 2026-09-07            2026-03-30          2026-03-02              5                  23                29                   17                           13                  2026-03-23
+  Rajshahi        ili              0.671        2.51          True             2041.6       False          46          2         9                     42                   38 2026-11-09 2027-01-11 2027-03-01            2026-10-12          2026-09-14              5                  51                 5                   46                           42                  2026-10-12
+  Rajshahi    malaria              0.916        2.06          True               73.6       False          22         34        41                     18                   14 2026-05-25 2026-08-17 2026-10-05            2026-04-27          2026-03-30              5                  27                33                   21                           17                  2026-04-20
+   Rangpur     dengue              0.678        3.59          True              644.9       False          25         30        45                     21                   17 2026-06-15 2026-07-20 2026-11-02            2026-05-18          2026-04-20              5                  30                37                   24                           20                  2026-05-11
+   Rangpur diarrhoeal              0.933        1.93          True             1627.3       False          19         27        38                     15                   11 2026-05-04 2026-06-29 2026-09-14            2026-04-06          2026-03-09              5                  23                27                   19                           15                  2026-04-06
+   Rangpur        ili              0.665        2.70          True             1746.6       False          47          4        10                     43                   39 2026-11-16 2027-01-25 2027-03-08            2026-10-19          2026-09-21              5                  51                 5                   45                           41                  2026-10-05
+   Rangpur    malaria              0.910        2.28          True               70.6       False          21         29        39                     17                   13 2026-05-18 2026-07-13 2026-09-21            2026-04-20          2026-03-23              5                  27                34                   21                           17                  2026-04-20
+    Sylhet     dengue              0.808        2.73          True              578.6       False          26         30        45                     22                   18 2026-06-22 2026-07-20 2026-11-02            2026-05-25          2026-04-27              5                  28                36                   24                           20                  2026-05-11
+    Sylhet diarrhoeal              0.891        1.73          True             1126.0       False          18         27        39                     14                   10 2026-04-27 2026-06-29 2026-09-21            2026-03-30          2026-03-02              5                  19                31                   17                           13                  2026-03-23
+    Sylhet        ili              0.706        2.35          True              979.8       False          47          2        11                     43                   39 2026-11-16 2027-01-11 2027-03-15            2026-10-19          2026-09-21              5                  51                 4                   46                           42                  2026-10-12
+    Sylhet    malaria              0.919        2.24          True             1561.3       False          22         31        40                     18                   14 2026-05-25 2026-07-27 2026-09-28            2026-04-27          2026-03-30              5                  27                34                   18                           14                  2026-03-30
+wrote C:\episcope_clone\episcope\data\analytics\preparedness_calendar.csv and seasonal_profile.csv
+
+=== serve (attempt 1/2) ===
+alerts: dropped 12 rows on weeks with a suppressed case count (PRV-2)
+allocation[live]: 3,657 grid rows (3,255 all-zero rows omitted)
+allocation[peak]: 4,608 grid rows (0 all-zero rows omitted)
+valve: trimmed 8 oldest weeks of ili; it now starts 2023-02-13
+valve: nothing left to trim (malaria at 52 weeks, ILI at 52 weeks or at the floor 2023-02-13); still over 9,700,000 bytes
+WARNING: size valve could not get under 9,700,000 bytes within its limits (52 weeks per disease, ILI from 2023-02-13 at the latest); the check below fails only if the total passes 10,000,000 bytes
+WARNING: window: ili starts in epi-week 7, inside the season of Barishal (onset W47 to end W9); its first season is cut
+WARNING: window: ili starts in epi-week 7, inside the season of Chattogram (onset W47 to end W9); its first season is cut
+WARNING: window: ili starts in epi-week 7, inside the season of Dhaka (onset W46 to end W9); its first season is cut
+WARNING: window: ili starts in epi-week 7, inside the season of Khulna (onset W47 to end W10); its first season is cut
+WARNING: window: ili starts in epi-week 7, inside the season of Mymensingh (onset W47 to end W10); its first season is cut
+WARNING: window: ili starts in epi-week 7, inside the season of Rajshahi (onset W46 to end W9); its first season is cut
+WARNING: window: ili starts in epi-week 7, inside the season of Rangpur (onset W47 to end W10); its first season is cut
+WARNING: window: ili starts in epi-week 7, inside the season of Sylhet (onset W47 to end W11); its first season is cut
+window dengue: 2020-12-28 to 2025-12-29 (262 weeks)
+window diarrhoeal: 2020-12-28 to 2025-12-29 (262 weeks)
+window ili: 2023-02-13 to 2025-12-29 (151 weeks)
+window malaria: 2025-01-06 to 2025-12-29 (52 weeks)
+cases_weekly: 46,528 rows, 3,134 suppressed (6.7%), diseases ['dengue', 'diarrhoeal', 'ili', 'malaria']
+forecast: 1,024 rows, origin 2025-W52, model nb_lagged_weather
+calendar: 32 rows
+stock: 1,664 rows | seasonality: 1,872 rows
+alerts: 3,502 rows (same window per disease; dengue/diarrhoeal last 104 weeks) | dq_report: 5 batches
+data_as_of 2025-12-29 | wrote to serving\data
+  alerts.json              734 KB
+  allocation.json          556 KB
+  allocation_peak.json       704 KB
+  calendar.json             12 KB
+  cases_weekly.json      7,061 KB
+  dq_report.json             4 KB
+  forecast.json            215 KB
+  freshness.json             0 KB
+  meta.json                  6 KB
+  seasonality.json         335 KB
+  stock.json               241 KB
+  total                  9,870 KB (limit 10 MB = 10,000 KB)
+WARNING: files other than cases_weekly are 2.88 MB, the contract split is 2.5 MB (warning only, the total decides)
+  alert rows on suppressed weeks: 0
+SERVING EXPORT CHECK FAILED:
+  total size 10.11 MB is over 10 MB
+stage serve failed with exit code 1
+
+=== serve (attempt 2/2) ===
+alerts: dropped 12 rows on weeks with a suppressed case count (PRV-2)
+allocation[live]: 3,657 grid rows (3,255 all-zero rows omitted)
+allocation[peak]: 4,608 grid rows (0 all-zero rows omitted)
+valve: trimmed 8 oldest weeks of ili; it now starts 2023-02-13
+valve: nothing left to trim (malaria at 52 weeks, ILI at 52 weeks or at the floor 2023-02-13); still over 9,700,000 bytes
+WARNING: size valve could not get under 9,700,000 bytes within its limits (52 weeks per disease, ILI from 2023-02-13 at the latest); the check below fails only if the total passes 10,000,000 bytes
+WARNING: window: ili starts in epi-week 7, inside the season of Barishal (onset W47 to end W9); its first season is cut
+WARNING: window: ili starts in epi-week 7, inside the season of Chattogram (onset W47 to end W9); its first season is cut
+WARNING: window: ili starts in epi-week 7, inside the season of Dhaka (onset W46 to end W9); its first season is cut
+WARNING: window: ili starts in epi-week 7, inside the season of Khulna (onset W47 to end W10); its first season is cut
+WARNING: window: ili starts in epi-week 7, inside the season of Mymensingh (onset W47 to end W10); its first season is cut
+WARNING: window: ili starts in epi-week 7, inside the season of Rajshahi (onset W46 to end W9); its first season is cut
+WARNING: window: ili starts in epi-week 7, inside the season of Rangpur (onset W47 to end W10); its first season is cut
+WARNING: window: ili starts in epi-week 7, inside the season of Sylhet (onset W47 to end W11); its first season is cut
+window dengue: 2020-12-28 to 2025-12-29 (262 weeks)
+window diarrhoeal: 2020-12-28 to 2025-12-29 (262 weeks)
+window ili: 2023-02-13 to 2025-12-29 (151 weeks)
+window malaria: 2025-01-06 to 2025-12-29 (52 weeks)
+cases_weekly: 46,528 rows, 3,134 suppressed (6.7%), diseases ['dengue', 'diarrhoeal', 'ili', 'malaria']
+forecast: 1,024 rows, origin 2025-W52, model nb_lagged_weather
+calendar: 32 rows
+stock: 1,664 rows | seasonality: 1,872 rows
+alerts: 3,502 rows (same window per disease; dengue/diarrhoeal last 104 weeks) | dq_report: 5 batches
+data_as_of 2025-12-29 | wrote to serving\data
+  alerts.json              734 KB
+  allocation.json          556 KB
+  allocation_peak.json       704 KB
+  calendar.json             12 KB
+  cases_weekly.json      7,061 KB
+  dq_report.json             4 KB
+  forecast.json            215 KB
+  freshness.json             0 KB
+  meta.json                  6 KB
+  seasonality.json         335 KB
+  stock.json               241 KB
+  total                  9,870 KB (limit 10 MB = 10,000 KB)
+WARNING: files other than cases_weekly are 2.88 MB, the contract split is 2.5 MB (warning only, the total decides)
+  alert rows on suppressed weeks: 0
+SERVING EXPORT CHECK FAILED:
+  total size 10.11 MB is over 10 MB
+stage serve failed with exit code 1
+
+Summary
+  generate   skipped       0.0s  attempts=0
+  bronze     ok          128.7s  attempts=1
+  silver     ok          347.7s  attempts=1
+  gold       ok          214.1s  attempts=1
+  contract   ok           42.2s  attempts=1
+  catalog    ok           53.1s  attempts=1
+  export     ok            3.2s  attempts=1
+  alerts     ok           27.2s  attempts=1
+  demand     ok          120.7s  attempts=1
+  allocate   ok           13.2s  attempts=1
+  scenarios  ok           45.6s  attempts=1
+  calendar   ok            4.3s  attempts=1
+  serve      failed        1.9s  attempts=2
