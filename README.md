@@ -63,6 +63,136 @@ last 52 weeks) only limit how much history the dashboard files hold; they are op
 ingestion or the analytics. The D3.js v7 dashboard in `dashboard/` is static and reads only these files, never
 line-level data.
 
+## Dashboard (D3.js v7)
+
+An interactive, coordinated-view dashboard for national, division and district decision-makers. It is built with
+D3.js v7 only (VIS-1), runs from static files, and loads only the aggregated, privacy-suppressed JSON in `serving/data/`
+(VIS-4). It never reads line-level data.
+
+### Run it
+
+The exports in `serving/data/` come from the pipeline (`make all`, `serve` stage) and are committed, so the dashboard also runs from a fresh clone without Spark.
+Prerequisite for the dashboard alone: Python 3 (only to serve static files) and a modern browser. No internet is needed: D3 v7.9.0 is vendored in
+`dashboard/vendor/d3.v7.min.js`.
+
+```bash
+# from the repository root
+python -m http.server 8000
+# then open
+http://localhost:8000/dashboard/
+```
+
+Do not open `dashboard/index.html` by double-click: browsers block `fetch` on `file://`.
+
+| URL | Data read |
+|---|---|
+| `/dashboard/` | real exports in `serving/data/` (default) |
+| `/dashboard/?data=sample` | hand-made samples in `serving/sample/` (made by `python scripts/make_sample_data.py`; they cover the main views only, not the allocation plan, calendar or data-quality panels) |
+
+`meta.json`, `freshness.json` and `cases_weekly.json` are required; the dashboard stops with a clear message if one is
+missing. The other files are optional and the matching view says so when its file is absent.
+
+### Data folders and files
+
+| Path | Role |
+|---|---|
+| `serving/geo/bgd_adm2_simplified_coded.geojson` | 64 district boundaries, key `district_code` (2-digit string). Outer rings are re-wound in the browser because d3-geo needs the opposite winding to GeoJSON. |
+| `serving/data/` | real exports written by the pipeline (contract: `docs/serving_contract.md`) |
+| `serving/sample/` | hand-made samples with the same shape |
+| `scripts/check_serving.py` | checks the exports against the contract, PRV-2 and the 10 MB limit (`python scripts/check_serving.py`) |
+
+Which file feeds which view:
+
+| File | Used by |
+|---|---|
+| `cases_weekly.json` | choropleth, time series, early-warning table (cases column), heatmap week mapping |
+| `forecast.json` | time series (median and q10-q90 band) |
+| `alerts.json` | alert dots, time series strip, early-warning table, what-if threshold |
+| `seasonality.json`, `calendar.json` | seasonal heatmap and preparedness calendar |
+| `allocation.json`, `allocation_peak.json` | allocation view and what-if panel (live and peak scenarios) |
+| `dq_report.json` | data-quality panel |
+| `freshness.json`, `meta.json` | freshness line on every view; districts, diseases, per-disease windows |
+| `stock.json`, `seir.json` | exported by the pipeline but not drawn: stock and demand per district come from the `plan` in `allocation.json`, and the SEIR scenarios are not shown on the dashboard |
+
+### Views and requirements
+
+| View | Code | Requirements |
+|---|---|---|
+| 1. District choropleth of incidence per 100,000, with alert dots | `dashboard/js/views/choropleth.js` | VIS-2 (1), VIS-3, VIS-6, PRV-2 |
+| 2. Time series: observed, forecast median, q10-q90 band, alert score vs. threshold, brush/zoom | `views/timeseries.js` | VIS-2 (2), VIS-3, VIS-6 |
+| 3. Seasonal heatmap (division x epi-week) and preparedness calendar | `views/seasonal.js` | VIS-2 (3), AN-9 (display) |
+| 4. Allocation: forecast demand, current stock, recommended allocation; efficiency-equity curve | `views/allocation.js` | VIS-2 (4), AN-7/AN-8 (display) |
+| 5. Ranked early-warning table | `views/warnings.js` | VIS-2 (5), VIS-3 |
+| What-if panel: budget, equity floor, detection threshold | `views/whatif.js`, `alerts.js` | VIS-5 |
+| Data-quality panel (per load) | `views/dq.js` | DQ-2 |
+| Role view (national / district officer demo) | `state.js` (guard), `main.js`, all views | PRV-3 |
+| Shared state, loading, freshness | `state.js`, `data.js`, `main.js` | VIS-3, VIS-6 |
+
+VIS-7 (mobile district-officer view or outbreak playback) is not implemented. The layout stacks on narrow screens, but it
+has not been tested on phones and is not claimed as a deliverable.
+
+### Linked interaction (VIS-3)
+
+All views read one shared state: disease, district, selected week, week range, budget, equity floor, detection
+threshold, scenario, role.
+
+| Action | Effect |
+|---|---|
+| Click a district on the map, a table row, or an allocation bar | selects the district everywhere (time series switches to it; map outline; table and heatmap row highlight) |
+| Drag on the overview chart under the time series | sets the week range (zooms the time series; the week slider follows). Click it to reset |
+| Click the time series, or a heatmap column | selects that week; the map, table and what-if cards redraw |
+| Change disease | all views redraw; the threshold slider resets |
+| Move budget, equity floor or threshold sliders | allocation, alert dots, table, strip and result cards update together |
+
+### Honesty, privacy and accessibility
+
+- **Small-cell suppression (PRV-2).** The exporter hides counts of 1-4. The dashboard draws these cells with a hatch
+  pattern and the tooltip reads "suppressed (fewer than 5 cases)". National totals on the time series sum only
+  non-suppressed districts and say so on screen. `scripts/check_serving.py` fails if any visible count of 1-4 appears.
+- **Aggregation levels (VIS-4).** Cases are served per district and week, seasonality per division, allocation as a
+  precomputed grid. The whole `serving/data/` folder must stay under 10,000,000 bytes (checked by the script).
+- **Uncertainty.** The forecast q10-q90 band is always drawn. National forecast bands are sums of district quantiles and are
+  labelled approximate.
+- **Freshness (VIS-6).** Every panel shows the data date and generation time from `freshness.json`; the allocation panel also
+  shows its own date (latest stock snapshot). Nothing uses the browser clock, and no dates or file names are hard-coded, so
+  a new export or the hidden test drop is picked up by reloading the page. Each disease uses its own exported week window;
+  weeks outside it are shown as "not exported", which is different from "no data".
+- **Colour.** Colour-blind-safe scales (ColorBrewer YlOrRd and YlGnBu, viridis, Okabe-Ito). Meaning is never carried by colour
+  alone: suppression is hatched, severity uses triangles plus text, and table rows can be reached with the keyboard.
+- **Role view (PRV-3).** "District officer (demo)" shows the chosen district in detail and every other district only as its
+  division's aggregate (an aggregate needs at least two districts with published counts). This is a front-end demonstration:
+  every export file is still downloadable from the browser, so real access control would have to be enforced on a server.
+- **What-if detection threshold (VIS-5).** Alerts are re-thresholded in the browser from the exported scores. The slider can go
+  down to about half the default because the export keeps only scores above that. Severity labels are not recalculated.
+  Allocation figures come from the precomputed grid; nothing is re-optimised in the browser.
+
+### Dashboard layout
+
+```
+dashboard/
+  index.html
+  css/style.css
+  js/main.js        load data, create the shared store, controls, role view, freshness
+  js/state.js       shared store with subscribe/set and an optional guard
+  js/data.js        the only module that knows file names; per-disease windows; geojson rewind
+  js/alerts.js      alert logic for the what-if threshold
+  js/views/         choropleth, timeseries, seasonal, allocation, warnings, whatif, dq
+  vendor/d3.v7.min.js
+scripts/make_sample_data.py, scripts/check_serving.py
+```
+
+### Usability check (report section 7)
+
+Two non-CS participants, about 20 minutes each, no help given. Fill in after the sessions.
+
+| Task | Participant 1 | Participant 2 |
+|---|---|---|
+| Which district has the highest dengue incidence in the selected week? | TBD | TBD |
+| What does the hatched grey mean on the map? | TBD | TBD |
+| Which division should prepare supplies first for dengue next season? | TBD | TBD |
+| If the budget doubles, what happens to unmet demand? | TBD | TBD |
+
+Tested in: TBD (browser and version).
 
 ## Requirement traceability
 | ID | Where | Report section |
