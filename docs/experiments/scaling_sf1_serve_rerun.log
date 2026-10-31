@@ -1,0 +1,41 @@
+﻿
+=== serve (attempt 1/2) ===
+alerts: dropped 12 rows on weeks with a suppressed case count (PRV-2)
+allocation[live]: 3,657 grid rows (3,255 all-zero rows omitted)
+allocation[peak]: 4,608 grid rows (0 all-zero rows omitted)
+WARNING: window: ili starts in epi-week 51, inside the season of Barishal (onset W47 to end W9); its first season is cut
+WARNING: window: ili starts in epi-week 51, inside the season of Chattogram (onset W47 to end W9); its first season is cut
+WARNING: window: ili starts in epi-week 51, inside the season of Dhaka (onset W46 to end W9); its first season is cut
+WARNING: window: ili starts in epi-week 51, inside the season of Khulna (onset W47 to end W10); its first season is cut
+WARNING: window: ili starts in epi-week 51, inside the season of Mymensingh (onset W47 to end W10); its first season is cut
+WARNING: window: ili starts in epi-week 51, inside the season of Rajshahi (onset W46 to end W9); its first season is cut
+WARNING: window: ili starts in epi-week 51, inside the season of Rangpur (onset W47 to end W10); its first season is cut
+WARNING: window: ili starts in epi-week 51, inside the season of Sylhet (onset W47 to end W11); its first season is cut
+window dengue: 2020-12-28 to 2025-12-29 (262 weeks)
+window diarrhoeal: 2020-12-28 to 2025-12-29 (262 weeks)
+window ili: 2022-12-19 to 2025-12-29 (159 weeks)
+window malaria: 2025-01-06 to 2025-12-29 (52 weeks)
+cases_weekly: 47,040 rows, 3,134 suppressed (6.7%), diseases ['dengue', 'diarrhoeal', 'ili', 'malaria']
+forecast: 1,024 rows, origin 2025-W52, model nb_lagged_weather
+calendar: 32 rows
+stock: 1,664 rows | seasonality: 1,872 rows
+alerts: 3,587 rows (same window per disease; dengue/diarrhoeal last 104 weeks) | dq_report: 5 batches
+data_as_of 2025-12-29 | wrote to serving\data
+  alerts.json              752 KB
+  allocation.json          556 KB
+  allocation_peak.json       704 KB
+  calendar.json             12 KB
+  cases_weekly.json      6,323 KB
+  dq_report.json             4 KB
+  forecast.json            215 KB
+  freshness.json             0 KB
+  meta.json                  6 KB
+  seasonality.json         335 KB
+  stock.json               241 KB
+  total                  9,149 KB (limit 10 MB = 10,000 KB)
+WARNING: files other than cases_weekly are 2.89 MB, the contract split is 2.5 MB (warning only, the total decides)
+  alert rows on suppressed weeks: 0
+serving export ok
+
+Summary
+  serve      ok            3.7s  attempts=1

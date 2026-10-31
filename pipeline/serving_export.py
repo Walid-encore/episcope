@@ -66,9 +66,15 @@ def clean(v):
     return v.item() if hasattr(v, "item") else v
 
 
+def _drop_false_flag(js: str) -> str:
+    """Omit the default-false `suppressed` key (VIS-4 size budget); an absent key means false.
+    `suppressed` is the last column of cases_weekly, so the false form always ends a record."""
+    return js.replace(',"suppressed":false}', "}")
+
+
 def write_rows(out: Path, name: str, header: dict, key: str, df: pd.DataFrame) -> None:
     head = json.dumps(header, separators=(",", ":"))
-    body = df.to_json(orient="records", double_precision=4)
+    body = _drop_false_flag(df.to_json(orient="records", double_precision=4))
     (out / name).write_text(f'{head[:-1]},"{key}":{body}}}', encoding="utf-8")
 
 
@@ -141,7 +147,7 @@ def trim_to_budget(cases: pd.DataFrame, alerts: pd.DataFrame, fixed_bytes: int, 
     (only ILI / malaria). Limits: never below MIN_WEEKS per disease, and ILI never starts later than `ili_floor`.
     Returns (cases, alerts, log lines, fits)."""
     def size(c, a):
-        return (len(c.to_json(orient="records", double_precision=4).encode())
+        return (len(_drop_false_flag(c.to_json(orient="records", double_precision=4)).encode())
                 + len(a.to_json(orient="records", double_precision=4).encode()))
 
     floors = {"ili": ili_floor}
@@ -534,11 +540,11 @@ def validate(out: Path) -> list:
                 problems.append(f"bad district_code {r['district_code']!r}")
                 break
         leaked = [r for r in rows if r["cases"] is not None and 1 <= r["cases"] <= 4]
-        mismatch = [r for r in rows if r["suppressed"] != (r["cases"] is None)
+        mismatch = [r for r in rows if r.get("suppressed", False) != (r["cases"] is None)
                     or (r["incidence_per_100k"] is None) != (r["cases"] is None)]
         alerts_f = out / "alerts.json"
         if alerts_f.exists():
-            sup_keys = {(r["district_code"], r["disease"], r["week_start"]) for r in rows if r["suppressed"]}
+            sup_keys = {(r["district_code"], r["disease"], r["week_start"]) for r in rows if r.get("suppressed", False)}
             alert_rows = json.loads(alerts_f.read_text(encoding="utf-8"))["rows"]
             on_sup = [r for r in alert_rows if (r["district_code"], r["disease"], r["week_start"]) in sup_keys]
             print(f"  alert rows on suppressed weeks: {len(on_sup)}")

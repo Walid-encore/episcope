@@ -11,7 +11,7 @@ Source tables: `docs/gold_contract.md`.
 - Total size of all files in `serving/data/` is under 10 MB (VIS-4). Budget: cases_weekly < 7.5 MB, everything else < 2.5 MB combined (the 10 MB total is the limit).
 - Everything is aggregated. No patient-level data, no hashed ids, no facility-level rows.
 - **Geography key is `district_code`**: a 2-digit string "01".."64" (never "BD-01", never a number). It equals the `district_code` property in `serving/geo/bgd_adm2_simplified_coded.geojson`.
-- **Privacy (PRV-2):** any count of 1-4 is suppressed. Complementary suppression is applied so suppressed cells cannot be recovered from totals by subtraction. A suppressed count is written as `null` with `"suppressed": true`; its `incidence_per_100k` is also `null`. A true zero is written as `0` with `"suppressed": false`. Never write 0 for a suppressed cell.
+- **Privacy (PRV-2):** any count of 1-4 is suppressed. Complementary suppression is applied so suppressed cells cannot be recovered from totals by subtraction. A suppressed count is written as `null` with `"suppressed": true`; its `incidence_per_100k` is also `null`. A true zero is written as `0` and carries no `suppressed` key (absent means false, see v0.4 below). Never write 0 for a suppressed cell.
 - Dates are ISO `YYYY-MM-DD`. Weeks carry `epi_year` (ISO year), `epi_week`, `week_start`.
 - Every file has top-level `generated_at` (UTC ISO timestamp) and `data_as_of` (latest data date).
 - Missing values are `null`, never `""` or `-1`.
@@ -38,8 +38,9 @@ Source tables: `docs/gold_contract.md`.
 ```json
 {"generated_at": "...", "data_as_of": "...",
  "rows": [{"district_code": "01", "disease": "dengue", "epi_year": 2025, "epi_week": 30,
-           "week_start": "2025-07-21", "cases": 18, "incidence_per_100k": 1.3, "suppressed": false}]}
+           "week_start": "2025-07-21", "cases": 18, "incidence_per_100k": 1.3}]}
 ```
+`suppressed` is written only when it is `true` (with `cases` and `incidence_per_100k` both `null`); an absent key means `false` (v0.4). Readers must test it for truthiness, never `=== false`.
 Used by: choropleth, time series, seasonal heatmap. Size: 64 districts x 2 diseases x ~260 weeks is about 33k rows.
 
 ### forecast.json
@@ -120,3 +121,10 @@ After freeze, fields may only be ADDED. Never rename or remove. Announce in the 
 - **Allocation alphas:** `allocation.json` (live) has alpha values 0, 0.2, 0.4, 0.6 and 0.8. `allocation_peak.json` has 0, 0.4 and 0.8. Each file lists its own `alpha_values` and `budget_levels`, and a viewer must use the lists of the file it shows. A grid row that is missing means 0 / 0 (`grid_zero_rows_omitted`), so an alpha that is not in the file's list must not be read as "nothing allocated".
 - **Size:** the limit of 10,000,000 bytes for all files in `serving/data/` is binding. The earlier split (2.5 MB for the files other than `cases_weekly.json`, 7.5 MB for `cases_weekly.json`) is a target only, and the exporter prints a warning if one is passed. If the total goes over 9,700,000 bytes the exporter's size valve trims the oldest weeks of ILI and malaria in steps of 4, logs it, never goes below 52 weeks per disease, and never cuts ILI later than 2023-02-13. Measured on the interim data (`data_as_of` 2026-01-12): 9.27 MB.
 - **Calendar dates:** `calendar.json` covers the first year ahead of the data (2026 for data ending January 2026). ILI seasons that start in November end in 2027. The week numbers are the real output, and the dates follow from the year.
+
+## Change v0.4 (serving size fix, SF 1 run)
+
+- **`cases_weekly.json`: the `suppressed` key is written only when it is `true`.** An absent key means `false`. Rows with a visible count (including a true `0`) no longer carry `"suppressed": false`. A suppressed row is unchanged: `cases: null`, `incidence_per_100k: null`, `suppressed: true`.
+- **Why:** at SF 1 the serving export measured 10.11 MB and failed the 10,000,000-byte limit (VIS-4) even after the size valve had trimmed ILI to its floor. Dropping the default-false flag from about 43,000 rows saved about 0.74 MB (`cases_weekly.json` 7,061 KB to 6,323 KB). The SF 1 total is now 9,368,232 bytes, no history is removed, and ILI again starts 2022-12-19.
+- **Readers:** the dashboard reads the flag by truthiness only (`r.suppressed`), so no dashboard change was needed. `scripts/check_serving.py` and the validation in `pipeline/serving_export.py` use `.get("suppressed", False)`, and `suppressed` is no longer a required field of `cases_weekly` rows.
+- Older files (for example `serving/sample/`) that carry `"suppressed": false` on every row remain valid.

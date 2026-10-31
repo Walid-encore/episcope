@@ -45,18 +45,18 @@ if fr: need([fr], ["generated_at", "data_as_of", "last_batch_id", "pipeline_vers
 cw = load("cases_weekly")
 if cw:
     r = cw["rows"]
-    need(r, ["district_code", "disease", "epi_year", "epi_week", "week_start", "cases", "incidence_per_100k", "suppressed"], "cases_weekly")
+    need(r, ["district_code", "disease", "epi_year", "epi_week", "week_start", "cases", "incidence_per_100k"], "cases_weekly")   # "suppressed" is omitted when false (VIS-4)
     small = [x for x in r if x["cases"] is not None and 1 <= x["cases"] <= 4]
     (bad if small else ok)(f"PRV-2: {len(small)} rows with a visible count of 1-4")
-    inc = [x for x in r if x["suppressed"] and (x["cases"] is not None or x["incidence_per_100k"] is not None)]
+    inc = [x for x in r if x.get("suppressed", False) and (x["cases"] is not None or x["incidence_per_100k"] is not None)]
     (bad if inc else ok)(f"suppressed rows with non-null cases/incidence: {len(inc)}")
-    nul = [x for x in r if x["cases"] is None and not x["suppressed"]]
+    nul = [x for x in r if x["cases"] is None and not x.get("suppressed", False)]
     (bad if nul else ok)(f"null cases without suppressed flag: {len(nul)}")
     (ok if all(isinstance(x["district_code"], str) for x in r) else bad)("district_code is a string everywhere")
     if codes: (ok if {x["district_code"] for x in r} <= codes else bad)("all district codes exist in meta")
     seen = {x["disease"] for x in r}
     (ok if seen <= diseases or not diseases else bad)(f"diseases in cases_weekly {sorted(seen)} vs meta")
-    print(f"       {len(r)} rows, suppressed share {sum(x['suppressed'] for x in r) / max(len(r), 1):.1%}")
+    print(f"       {len(r)} rows, suppressed share {sum(bool(x.get('suppressed', False)) for x in r) / max(len(r), 1):.1%}")
 
 fc = load("forecast")
 if fc:
