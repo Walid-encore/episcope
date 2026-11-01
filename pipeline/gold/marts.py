@@ -33,7 +33,9 @@ def _dim(spark, values, name):
 def _py_grid(spark, left: DataFrame, diseases, weeks: DataFrame, lags=None) -> DataFrame:
     """Dense grid = left x diseases x weeks (x lags), built in Python and sent to Spark as ONE small
     local table. Replaces chained crossJoin, which took ~86 s per join on small machines.
-    Column names and types come from the input DataFrames, so the schema is unchanged."""
+    Column names and types come from the input DataFrames, so the schema is unchanged.
+    ONE partition: every partition of a Python-built DataFrame starts its own Python worker process
+    (~0.65 s each on Windows), so the default 16 partitions cost ~10 s per scan (ENG-3, docs/experiments)."""
     left_rows = [tuple(r) for r in left.collect()]
     week_rows = [tuple(r) for r in weeks.collect()]
     fields = list(left.schema.fields)
@@ -47,7 +49,7 @@ def _py_grid(spark, left: DataFrame, diseases, weeks: DataFrame, lags=None) -> D
         fields.append(StructField("report_lag_weeks", IntegerType()))
         parts.append([(i,) for i in lags])
     rows = [tuple(v for piece in combo for v in piece) for combo in itertools.product(*parts)]
-    return spark.createDataFrame(rows, StructType(fields))
+    return spark.createDataFrame(spark.sparkContext.parallelize(rows, 1), StructType(fields))
 
 
 def date_range(df: DataFrame, col: str):
@@ -216,8 +218,9 @@ def dq_report(spark, quarantine, qmeta, enc, emeta, stock, smeta, run_ts: dt.dat
 
 def reconciliation_row(spark, rule_id, reason_code, checked, failed, run_ts) -> DataFrame:
     """A gold-level check expressed as a dq row (for example: lag counts must add up to weekly cases)."""
-    return spark.createDataFrame(
-        [("ALL", rule_id, reason_code, int(checked), int(failed), 1.0 - failed / checked if checked else None, run_ts)],
+    row = ("ALL", rule_id, reason_code, int(checked), int(failed), 1.0 - failed / checked if checked else None, run_ts)
+    return spark.createDataFrame(                 # ONE partition, see _py_grid: 16 partitions = 16 Python workers
+        spark.sparkContext.parallelize([row], 1),
         "batch_id string, rule_id string, reason_code string, rows_checked long, rows_failed long, "
         "pass_rate double, run_ts timestamp")
 
