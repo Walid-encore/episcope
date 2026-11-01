@@ -1,0 +1,6 @@
+﻿ 
+defaultParallelism = 16
+A createDataFrame(list), default partitions          rows=262  runs (s): 10.86, 10.55, 9.46
+B createDataFrame(parallelize(list, 1)), 1 partition rows=262  runs (s): 0.74, 0.75, 0.73
+C spark.range(262), no Python involved               rows=262  runs (s): 0.37, 0.11, 0.13
+D sequence() weekly dates, native SQL                rows=261  runs (s): 0.35, 0.08, 0.08

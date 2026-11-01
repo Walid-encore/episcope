@@ -1,0 +1,11 @@
+﻿ 
+gold_dq_report               rows        40 vs        40 | only in A: 0 | only in B: 0 | IDENTICAL
+gold_lineage                 rows     1,310 vs     1,310 | only in A: 0 | only in B: 0 | IDENTICAL
+gold_reporting_status        rows    16,768 vs    16,768 | only in A: 0 | only in B: 0 | IDENTICAL
+gold_stock_weekly            rows    16,768 vs    16,768 | only in A: 0 | only in B: 0 | IDENTICAL
+gold_weekly_cases            rows    67,072 vs    67,072 | only in A: 0 | only in B: 0 | IDENTICAL
+gold_weekly_cases_by_lag     rows   335,360 vs   335,360 | only in A: 0 | only in B: 0 | IDENTICAL
+gold_weekly_reports          rows    67,072 vs    67,072 | only in A: 0 | only in B: 0 | IDENTICAL
+gold_weekly_weather          rows    20,096 vs    20,096 | only in A: 0 | only in B: 0 | IDENTICAL
+
+RESULT: all tables identical

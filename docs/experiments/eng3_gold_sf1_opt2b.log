@@ -1,0 +1,19 @@
+﻿ 
+onset weeks 2021-01-01 .. 2025-12-31 | report weeks 2021-01-01 .. 2025-12-31 | diseases ['dengue', 'diarrhoeal', 'ili', 'malaria']
+  gold_weekly_cases                 67,072 rows    10.6s
+  gold_weekly_cases_by_lag         335,360 rows     7.5s
+  gold_weekly_reports               67,072 rows     6.7s
+  gold_reporting_status             16,768 rows     7.0s
+  gold_weekly_weather               20,096 rows     4.3s
+  gold_stock_weekly                 16,768 rows     3.8s
+  gold_lineage                       1,310 rows     3.4s
+  [timing] prelude 9.7s | seven tables 43.2s
+  gold_dq_report                        40 rows
+  [timing] reconciliation + dq report 8.6s
+
+Reconciliation:
+  GOLD_LAG_SUM_EQUALS_CASES    checked     67,072  failed      0  OK
+  GOLD_CASES_EQUAL_SILVER      checked 10,837,637  failed      0  OK
+  GOLD_REPORTS_EQUAL_SILVER    checked 10,837,637  failed      0  OK
+
+Gold written to C:\episcope_clone\gold_test\sf1_opt2b in 61.6s
