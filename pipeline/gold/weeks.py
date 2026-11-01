@@ -31,6 +31,17 @@ def add_week_cols(df, date_col: str, prefix: str = ""):
 
 
 def week_grid(spark, first: dt.date, last: dt.date, prefix: str = ""):
-    """One row per week with {prefix}week_start_date, {prefix}epi_year, {prefix}epi_week."""
-    df = spark.createDataFrame([(d,) for d in week_list(first, last)], "d date")
-    return add_week_cols(df, "d", prefix).drop("d")
+    """One row per week with {prefix}week_start_date, {prefix}epi_year, {prefix}epi_week.
+
+    Built inside Spark (sequence + explode), same weeks as week_list(first, last). A DataFrame made from a
+    Python list needs one Python worker process per partition (16 by default), about 0.65 s each on Windows,
+    so collecting this grid took ~10 s for 262 rows (ENG-3, docs/experiments)."""
+    from pyspark.sql import functions as F
+    start, end = monday(first), monday(last)
+    if end < start:                                                 # same as week_list: no weeks
+        days = spark.range(0).select(F.to_date(F.lit("1970-01-01")).alias("d"))
+    else:                                                           # ISO strings: no timezone conversion of a Python date
+        days = spark.range(1).select(F.explode(F.sequence(
+            F.to_date(F.lit(start.isoformat())), F.to_date(F.lit(end.isoformat())),
+            F.expr("INTERVAL 7 DAYS"))).alias("d"))
+    return add_week_cols(days, "d", prefix).drop("d")

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import os
 import sys
 import time
 from pathlib import Path
@@ -99,7 +100,11 @@ def main(argv=None):
             show_check(spark, "stock", stock_p, S.STOCK)
             show_check(spark, "quarantine", q_p, S.QUAR)
             return 0
-        return run(spark, a, enc_p, stock_p, q_p)
+        rc = run(spark, a, enc_p, stock_p, q_p)
+        if os.environ.get("EPISCOPE_HOLD_UI"):        # ENG-3 evidence only: keep the Spark UI alive for screenshots
+            print(f"\nSpark UI at {spark.sparkContext.uiWebUrl} : take the screenshots, then press Enter to exit", flush=True)
+            input()
+        return rc
     finally:
         spark.stop()
 
@@ -124,6 +129,7 @@ def run(spark, a, enc_p, stock_p, q_p) -> int:
     onset_weeks = week_grid(spark, lo, hi)
     report_weeks = week_grid(spark, rlo, rhi, prefix="report_")
     print(f"onset weeks {lo} .. {hi} | report weeks {rlo} .. {rhi} | diseases {diseases}")
+    t_prelude = time.perf_counter()
 
     tables = {
         "gold_weekly_cases": lambda: M.weekly_cases(spark, enc, districts, diseases, onset_weeks),
@@ -141,6 +147,9 @@ def run(spark, a, enc_p, stock_p, q_p) -> int:
         n = spark.read.parquet(posix(gold / name)).count()
         summary.append((name, n, time.perf_counter() - t))
         print(f"  {name:<28}{n:>12,} rows  {time.perf_counter() - t:6.1f}s", flush=True)
+
+    t_tables = time.perf_counter()
+    print(f"  [timing] prelude {t_prelude - t0:.1f}s | seven tables {t_tables - t_prelude:.1f}s", flush=True)
 
     # ---- reconciliation: gold must add up to silver and the as-of table to the final table
     run_ts = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
@@ -170,6 +179,7 @@ def run(spark, a, enc_p, stock_p, q_p) -> int:
         dq = row if dq is None else dq.unionByName(row, allowMissingColumns=True)
     write_table(dq, "gold_dq_report", gold)
     print(f"  {'gold_dq_report':<28}{spark.read.parquet(posix(gold / 'gold_dq_report')).count():>12,} rows")
+    print(f"  [timing] reconciliation + dq report {time.perf_counter() - t_tables:.1f}s", flush=True)
 
     print("\nReconciliation:")
     ok = True
