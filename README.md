@@ -77,7 +77,7 @@ Full pipeline at SF 0.25, 0.5 and 1; logs and per-stage timings are in `docs/exp
 (23.4 minutes with data generation), inside the 45-minute limit, measured before the gold-stage optimisation in ENG-3. The
 SF 1 serve stage first failed the 10 MB dashboard limit (VIS-4, log kept in `scaling_sf1_pipeline.log`) and passed after the fix
 (`scaling_sf1_serve_rerun.log`).
-<!-- CONFIRM: hardware line for the report and here (CPU model, 16 GB RAM, SSD). SF 0.25 was run by the Data Engineer, on which machine? -->
+Hardware: SF 0.5 and SF 1 ran on an MSI Thin A15 B7UC laptop (AMD Ryzen 7 7735HS, 8 cores / 16 threads, 16 GB RAM with 15.2 GB usable, Windows; the 4 GB GPU is not used by Spark). The SF 0.25 run was done by the Data Engineer on an Intel Core i3-10100 (4 cores / 8 threads, 7.9 GB RAM), so its time is not directly comparable.
 
 ## Architecture
 Medallion lakehouse: bronze (raw, immutable) -> silver (clean, de-identified, quarantine) -> gold (epi-week marts) ->
