@@ -1,6 +1,17 @@
 # EpiScope
 
-**Video presentation:**  (chapter timestamps:)
+**Video presentation:** https://drive.google.com/file/d/1PjmD2oMMD6eno1HaQXX4A6NV4ZyOpDKX/view?usp=sharing
+
+**Chapter timestamps:**
+
+| # | Chapter | Time | Presenter |
+|---|---|---|---|
+| 1 | Problem, stakeholders, conflicts | 00:00:00 - 00:02:18 | Visualization Engineer |
+| 2 | Architecture walkthrough | 00:02:19 - 00:05:11 | Data Engineer |
+| 3 | Pipeline run (clean run, incremental day, idempotent re-run, quarantine example) | 00:05:12 - 00:08:12 | Data Engineer |
+| 4 | Analytics results against baselines (including scaling and Spark optimisations) | 00:08:13 - 00:15:35 | Analytics Engineer |
+| 5 | Dashboard walkthrough | 00:15:36 - 00:18:39 | Visualization Engineer |
+| 6 | Recommendations, ethics and limitations | 00:18:40 - 00:19:55 | All |
 
 Big-data surveillance, forecasting and response-planning platform for seasonal and epidemic disease in Bangladesh
 (CSE 4345 CEP). Encounters, facilities and stock are **synthetic** (seeded generator in `generator/`). Weather is real
@@ -40,6 +51,14 @@ python -m pipeline.run_all
 python -m analytics.export_gold --gold data/gold --out data/gold_csv
 python -m analytics.run_all --gold data/gold_csv
 ```
+**Detection evaluation (AN-2).** After `make all` has produced `data/gold_csv`, run the analytics with the Spark engine and the
+ground-truth evaluation (sensitivity, false alerts per district-year, days to detection, trade-off curve for conflict C1):
+```
+python -m analytics.run_all --gold data/gold_csv --engine spark --evaluate
+```
+This is the command shown in the video (chapter 4). It is not part of the delivery run, because the evaluation is the only
+step that reads the ground-truth files; detection itself never does (`tests/test_truth_isolation.py`).
+
 **Dashboard** (from the repository root): `python -m http.server 8000`, then open http://localhost:8000/dashboard/index.html.
 
 ## Hidden 14-day test drop
@@ -68,8 +87,18 @@ python -m generator.generate --sf 0.05 --end 2026-01-14 --report-from 2026-01-01
 Copy-Item data_drop\incoming\* data\incoming\ -Recurse -Force
 make all
 ```
-Use the same `--sf` as the data in `data/` (default 0.05). Running `make all` a second time without new files changes
-nothing.
+Use the same `--sf` as the data in `data/` (default 0.05).
+
+**Idempotency check (shown in video chapter 3).** Run `make all` three times:
+1. first run: clean clone, generates the data and builds everything;
+2. second run: after copying the incremental drop into `data/incoming/` (commands above); only the new files are loaded and the touched epi-weeks are rewritten;
+3. third run: `make all` again with no new files. Bronze reports `new 0 | already loaded N`, and the silver, gold and serving outputs are unchanged, with no duplicates (ING-4).
+
+```
+make all    # 1st: clean run
+make all    # 2nd: after the incremental drop was copied in
+make all    # 3rd: re-run, nothing new -> idempotent
+```
 
 ## Scaling experiment (ENG-2)
 Full pipeline at SF 0.25, 0.5 and 1; logs and per-stage timings are in `docs/experiments/scaling_sf*_pipeline.log` and
@@ -267,10 +296,10 @@ scripts/make_sample_data.py, scripts/check_serving.py
 | ENG-2 scalability experiment SF 0.25, 0.5, 1 | `docs/experiments/scaling_sf025_pipeline.log`, `docs/experiments/scaling_sf05_pipeline.log`, `docs/experiments/scaling_sf1_pipeline.log`, `docs/experiments/scaling_sf1_serve_rerun.log`, `docs/experiments/scaling_sf05_analytics_timing.csv`, `docs/experiments/scaling_sf1_analytics_timing.csv` | §6 |
 | ENG-3 Spark optimisations with before/after evidence | `pipeline/gold/weeks.py`, `pipeline/gold/build.py`, `docs/experiments/eng3_gold_sf05_before.log`, `docs/experiments/eng3_gold_sf05_opt1.log` | §6 |
 | ENG-4 tests, isolation guards | `tests/test_truth_isolation.py`, `tests/test_no_fixture_in_delivery.py`, `tests/test_readme_traceability.py`, `analytics/check_inputs.py`, all `tests/test_*.py` | §6 |
-| ING-6 | Not implemented | EpiScope is a batch pipeline. New data arrives as files and is ingested incrementally and idempotently (make all); there is no Structured Streaming path. |
-| ING-7 | Not implemented | Storage is partitioned Parquet with a Spark SQL catalog. No Delta Lake or Iceberg, so no time travel. Reproducing "what we knew on date t" relies on the bronze file registry and first_report_date. |
-| DQ-4 | Partial | Silver removes re-delivered encounter records: one row per encounter ID, keeping the latest delivery (the generator injects about 2% such duplicates). Cross-facility patient de-duplication (same hashed ID and compatible attributes within 7 days) is not implemented, and its precision was not measured. |
-| PRV-4 | Not implemented | No k-anonymity check and no written differential-privacy discussion. The related control is PRV-2 small-cell suppression (counts of 1–4 hidden in the exported data). |
+| ING-6 near-real-time path (Structured Streaming) | not implemented: EpiScope is a batch pipeline. New data arrives as files and is ingested incrementally and idempotently (`make all`); there is no Structured Streaming path | §3, §9 |
+| ING-7 ACID table format with time travel | not implemented: storage is partitioned Parquet with a Spark SQL catalog, with no Delta Lake or Iceberg, so no time travel. Reproducing "what we knew on date t" relies on the bronze file registry and `first_report_date` | §3, §9 |
+| DQ-4 partial: silver removes re-delivered encounter records (one row per encounter ID, latest delivery kept; the generator injects about 2% such duplicates). Cross-facility patient de-duplication (same hashed ID and compatible attributes within 7 days) is not implemented, and its precision was not measured | `pipeline/silver/build.py`, `pipeline/quality/rules.py`; test `tests/test_silver.py` | §4, §9 |
+| PRV-4 k-anonymity check and differential-privacy discussion | not implemented: no k-anonymity check and no written differential-privacy discussion. The related control is PRV-2 small-cell suppression (counts of 1–4 hidden in the exported data; `pipeline/serving_export.py`, `scripts/check_serving.py`) | §8, §9 |
 
 
 ## Tests
